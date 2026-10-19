@@ -34,14 +34,19 @@ func (w signalWriter) Write(p []byte) (int, error) {
 // RU: Проверяет доступность сервера и передачу адреса в браузер.
 // Сценарий: свободный порт и тестовый обработчик открытия браузера.
 // Ожидается: один вызов с локальным URL, успешный GET / и остановка.
-func TestRunStartsLoopbackHTTPAndStops(t *testing.T) {
+func TestRunStartsLoopbackHTTPAndOpensBrowser(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	writer := signalWriter{messages: make(chan string, 1)}
 	opened := make(chan string, 1)
 	finished := make(chan error, 1)
-	go func() { finished <- run(ctx, writer, "0", func(address string) error { opened <- address; return nil }) }()
+	go func() {
+		finished <- run(ctx, writer, "0", func(address string) error {
+			opened <- address
+			return nil
+		})
+	}()
 
 	var announced string
 	select {
@@ -64,7 +69,6 @@ func TestRunStartsLoopbackHTTPAndStops(t *testing.T) {
 	if parsed.Scheme != "http" || parsed.Hostname() != "127.0.0.1" {
 		t.Fatalf("listening URL = %q, want HTTP bound to 127.0.0.1", address)
 	}
-
 
 	select {
 	case got := <-opened:
