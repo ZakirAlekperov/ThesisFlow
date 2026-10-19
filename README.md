@@ -4,9 +4,9 @@ A lightweight, local graduation-thesis document tracker for educators.
 
 Лёгкий локальный помощник преподавателя для учёта материалов выпускных квалификационных работ.
 
-> **Development status / Состояние разработки:** early prototype (0.1.01). The first HTTP page is available; document storage, Excel import, SQLite and browser auto-opening are not implemented yet.
+> **Development status / Состояние разработки:** early prototype (0.1.01). The first HTTP page opens in the default browser. Document storage, Excel import and SQLite are not implemented yet.
 >
-> Ранний прототип (0.1.01). Доступна первая HTTP-страница; хранение документов, импорт Excel, SQLite и автоматическое открытие браузера ещё не реализованы.
+> Ранний прототип (0.1.01). Первая HTTP-страница автоматически открывается в браузере по умолчанию. Хранение документов, импорт Excel и SQLite ещё не реализованы.
 
 ## English
 
@@ -18,7 +18,7 @@ Go 1.23 or newer is required to run from source.
 go run ./cmd/thesisflow
 ```
 
-The program prints a local URL such as **http://127.0.0.1:37893/** (the port changes at each startup). Open the **printed URL** manually in your browser. Stop the local server with **Ctrl+C**. The server listens only on the loopback interface; other computers cannot connect.
+The program prints a local URL such as **http://127.0.0.1:37893/** (the port changes at each startup) and attempts to open it automatically in your default browser. If your graphical desktop or URL opener is unavailable, open the printed URL manually. Stop the local server with **Ctrl+C**. The server listens only on the loopback interface; other computers cannot connect.
 
 ### Test
 
@@ -39,7 +39,7 @@ See [docs/testing.md](docs/testing.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 go run ./cmd/thesisflow
 ```
 
-Программа выводит локальный адрес, например **http://127.0.0.1:37893/** (порт меняется при каждом запуске). Вручную откройте в браузере **адрес из консоли**. Для остановки сервера нажмите **Ctrl+C**. Сервер слушает только loopback-интерфейс; подключиться с другого компьютера нельзя.
+Программа выводит локальный адрес, например **http://127.0.0.1:37893/** (порт меняется при каждом запуске), и пытается автоматически открыть его в браузере по умолчанию. Если графическая среда или средство открытия ссылок недоступно, откройте адрес из консоли вручную. Для остановки сервера нажмите **Ctrl+C**. Сервер слушает только loopback-интерфейс; подключиться с другого компьютера нельзя.
 
 ### Тестирование
 
