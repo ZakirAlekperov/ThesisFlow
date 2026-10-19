@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,21 +27,21 @@ func (w signalWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// TestRunStartsLoopbackHTTPAndStops verifies local network accessibility and
-// a clean shutdown.
-// Scenario: start run with a free ephemeral port, request the home page, cancel.
-// Expected: URL uses 127.0.0.1, GET / returns 200, run exits without error.
+// TestRunStartsLoopbackHTTPAndOpensBrowser verifies local access and opening.
+// Scenario: a free port and an injected browser opener that records the URL.
+// Expected: one opener call with the loopback URL; GET / works; shutdown succeeds.
 //
-// RU: Проверяет доступность HTTP через loopback и корректную остановку.
-// Сценарий: запуск на свободном порту, запрос главной страницы, отмена контекста.
-// Ожидается: адрес 127.0.0.1, ответ GET / со статусом 200, завершение без ошибки.
+// RU: Проверяет доступность сервера и передачу адреса в браузер.
+// Сценарий: свободный порт и тестовый обработчик открытия браузера.
+// Ожидается: один вызов с локальным URL, успешный GET / и остановка.
 func TestRunStartsLoopbackHTTPAndStops(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	writer := signalWriter{messages: make(chan string, 1)}
+	opened := make(chan string, 1)
 	finished := make(chan error, 1)
-	go func() { finished <- run(ctx, writer, "0") }()
+	go func() { finished <- run(ctx, writer, "0", func(address string) error { opened <- address; return nil }) }()
 
 	var announced string
 	select {
@@ -64,6 +65,15 @@ func TestRunStartsLoopbackHTTPAndStops(t *testing.T) {
 		t.Fatalf("listening URL = %q, want HTTP bound to 127.0.0.1", address)
 	}
 
+
+	select {
+	case got := <-opened:
+		if got != address {
+			t.Errorf("browser URL = %q, want %q", got, address)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("browser opener was not called")
+	}
 	client := http.Client{Timeout: 3 * time.Second}
 	response, err := client.Get(address + "/")
 	if err != nil {
@@ -100,7 +110,10 @@ func TestRunFailsOnOccupiedPort(t *testing.T) {
 	}
 	defer occupied.Close()
 	port := fmt.Sprint(occupied.Addr().(*net.TCPAddr).Port)
-	if err := run(context.Background(), io.Discard, port); err == nil {
+	if err := run(context.Background(), io.Discard, port, func(string) error {
+		t.Error("browser called on occupied port")
+		return nil
+	}); err == nil {
 		t.Fatal("run on occupied port: want a bind error")
 	}
 }
@@ -126,7 +139,36 @@ func (failingWriter) Write([]byte) (int, error) {
 // Сценарий: run получает поток, возвращающий errWriteFailed.
 // Ожидается: errors.Is обнаруживает исходную ошибку записи.
 func TestRunReturnsOutputError(t *testing.T) {
-	if err := run(context.Background(), failingWriter{}, "0"); !errors.Is(err, errWriteFailed) {
+	if err := run(context.Background(), failingWriter{}, "0", func(string) error {
+		t.Error("browser called after failed output")
+		return nil
+	}); !errors.Is(err, errWriteFailed) {
 		t.Fatalf("run() error = %v, want %v", err, errWriteFailed)
+	}
+}
+
+// TestRunKeepsServerAliveWhenBrowserFails verifies a nonfatal browser error.
+// Scenario: the opener reports that the desktop environment is unavailable.
+// Expected: a warning and a normal shutdown rather than an application error.
+//
+// RU: Проверяет безопасную обработку ошибки запуска браузера.
+// Сценарий: обработчик возвращает ошибку отсутствия графической среды.
+// Ожидается: предупреждение и штатная остановка сервера.
+func TestRunKeepsServerAliveWhenBrowserFails(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var output bytes.Buffer
+	browserError := errors.New("desktop unavailable")
+	err := run(ctx, &output, "0", func(string) error {
+		cancel()
+		return browserError
+	})
+	if err != nil {
+		t.Fatalf("run() = %v, want nil", err)
+	}
+	for _, want := range []string{"ThesisFlow: http://127.0.0.1:", "Browser was not opened", browserError.Error()} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("output %q missing %q", output.String(), want)
+		}
 	}
 }
