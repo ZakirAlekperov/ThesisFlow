@@ -23,12 +23,13 @@ Current coverage:
 
 | Test | Contract |
 | --- | --- |
-| `TestRunWritesApplicationName` | Writes exactly `ThesisFlow\n` on successful startup output. |
-| `TestRunReturnsOutputError` | Returns the writer's error instead of silently ignoring it. |
 | `TestNewHandlerServesHomePage` | GET `/` returns HTML page named ThesisFlow. |
 | `TestNewHandlerRejectsUnsupportedRoutes` | Unknown paths return 404 and unsupported methods return 405. |
+| `TestRunStartsLoopbackHTTPAndStops` | Starts a real HTTP listener on 127.0.0.1, serves the homepage and stops after cancellation. |
+| `TestRunFailsOnOccupiedPort` | Reports an error when the requested loopback port is occupied. |
+| `TestRunReturnsOutputError` | Reports the writer error while announcing the HTTP address. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. A running HTTP server, browser startup, SQLite initialization and file storage have **not** been implemented or tested yet.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser auto-opening, SQLite initialization and file storage have **not** been implemented or tested yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -53,9 +54,10 @@ go vet ./...
 
 | Тест | Контракт |
 | --- | --- |
-| `TestRunWritesApplicationName` | При успешной записи выводит строго `ThesisFlow\n`. |
-| `TestRunReturnsOutputError` | Возвращает ошибку потока, а не игнорирует её. |
 | `TestNewHandlerServesHomePage` | GET `/` возвращает HTML-страницу ThesisFlow. |
 | `TestNewHandlerRejectsUnsupportedRoutes` | Неизвестные пути возвращают 404, неподдерживаемые методы — 405. |
+| `TestRunStartsLoopbackHTTPAndStops` | Запускает HTTP-сервер на 127.0.0.1, обслуживает главную страницу и останавливается после отмены. |
+| `TestRunFailsOnOccupiedPort` | Возвращает ошибку, если указанный локальный порт занят. |
+| `TestRunReturnsOutputError` | Передаёт ошибку записи при выводе адреса сервера. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Запуск работающего HTTP-сервера, открытие браузера, инициализация SQLite и файловое хранилище пока **не** реализованы и не проверены.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Автоматическое открытие браузера, инициализация SQLite и файловое хранилище пока **не** реализованы и не проверены. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.

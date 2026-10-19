@@ -1,52 +1,132 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
 	"testing"
+	"time"
 )
 
-// TestRunWritesApplicationName verifies the successful startup-output contract.
-// Scenario: run receives a writable in-memory buffer.
-// Expected: no error and exactly "ThesisFlow\n" in the output.
-//
-// RU: Проверяет контракт успешного вывода сообщения при запуске.
-// Сценарий: run получает доступный для записи буфер в памяти.
-// Ожидается: ошибка отсутствует, вывод строго равен "ThesisFlow\n".
-func TestRunWritesApplicationName(t *testing.T) {
-	var output bytes.Buffer
+// signalWriter communicates the announced URL to the test without sharing
+// a mutable buffer across goroutines.
+// RU: signalWriter передаёт тесту объявленный адрес без одновременного
+// доступа нескольких горутин к изменяемому буферу.
+type signalWriter struct {
+	messages chan string
+}
 
-	if err := run(&output); err != nil {
-		t.Fatalf("run() error = %v, want nil", err)
+func (w signalWriter) Write(p []byte) (int, error) {
+	w.messages <- string(p)
+	return len(p), nil
+}
+
+// TestRunStartsLoopbackHTTPAndStops verifies local network accessibility and
+// a clean shutdown.
+// Scenario: start run with a free ephemeral port, request the home page, cancel.
+// Expected: URL uses 127.0.0.1, GET / returns 200, run exits without error.
+//
+// RU: Проверяет доступность HTTP через loopback и корректную остановку.
+// Сценарий: запуск на свободном порту, запрос главной страницы, отмена контекста.
+// Ожидается: адрес 127.0.0.1, ответ GET / со статусом 200, завершение без ошибки.
+func TestRunStartsLoopbackHTTPAndStops(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	writer := signalWriter{messages: make(chan string, 1)}
+	finished := make(chan error, 1)
+	go func() { finished <- run(ctx, writer, "0") }()
+
+	var announced string
+	select {
+	case announced = <-writer.messages:
+	case err := <-finished:
+		t.Fatalf("server finished before listening: %v", err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("server did not announce its listening URL")
 	}
 
-	const want = "ThesisFlow\n"
-	if got := output.String(); got != want {
-		t.Errorf("run() output = %q, want %q", got, want)
+	const prefix = "ThesisFlow: "
+	if !strings.HasPrefix(announced, prefix) {
+		t.Fatalf("announcement = %q, want prefix %q", announced, prefix)
+	}
+	address := strings.TrimSpace(strings.TrimPrefix(announced, prefix))
+	parsed, err := url.Parse(address)
+	if err != nil {
+		t.Fatalf("parse address %q: %v", address, err)
+	}
+	if parsed.Scheme != "http" || parsed.Hostname() != "127.0.0.1" {
+		t.Fatalf("listening URL = %q, want HTTP bound to 127.0.0.1", address)
+	}
+
+	client := http.Client{Timeout: 3 * time.Second}
+	response, err := client.Get(address + "/")
+	if err != nil {
+		t.Fatalf("GET homepage: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("GET homepage status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	cancel()
+	select {
+	case err := <-finished:
+		if err != nil {
+			t.Fatalf("run after cancellation: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("server did not shut down after cancellation")
 	}
 }
 
-// errWriteFailed is the expected I/O failure used by the test double.
-// RU: Ошибка записи, которую должен вернуть тестовый имитатор.
+// TestRunFailsOnOccupiedPort verifies that a second instance does not silently
+// bind to a different interface or hide a bind failure.
+// Scenario: keep a loopback port busy and attempt to start ThesisFlow on it.
+// Expected: run returns an error describing a failed server start.
+//
+// RU: Проверяет обработку занятого порта без перехода на другой интерфейс.
+// Сценарий: запущен слушатель на loopback-порту, ThesisFlow использует тот же порт.
+// Ожидается: run возвращает ошибку запуска сервера.
+func TestRunFailsOnOccupiedPort(t *testing.T) {
+	occupied, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve port: %v", err)
+	}
+	defer occupied.Close()
+	port := fmt.Sprint(occupied.Addr().(*net.TCPAddr).Port)
+	if err := run(context.Background(), io.Discard, port); err == nil {
+		t.Fatal("run on occupied port: want a bind error")
+	}
+}
+
+// errWriteFailed marks the I/O error produced by the test double.
+// RU: errWriteFailed — ошибка записи тестового имитатора.
 var errWriteFailed = errors.New("write failed")
 
-// failingWriter simulates an output stream that cannot accept data.
-// RU: Имитирует поток вывода, в который невозможно записать данные.
+// failingWriter simulates an output stream that rejects writes.
+// RU: failingWriter имитирует поток вывода, который отклоняет запись.
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) {
 	return 0, errWriteFailed
 }
 
-// TestRunReturnsOutputError verifies that run does not hide an I/O failure.
-// Scenario: the output writer rejects a write with errWriteFailed.
-// Expected: run returns that same error (checked via errors.Is).
+// TestRunReturnsOutputError verifies that a failed startup announcement is
+// reported instead of being ignored.
+// Scenario: run gets a writer that returns errWriteFailed.
+// Expected: errors.Is recognizes the original write failure.
 //
-// RU: Проверяет, что run не скрывает ошибку записи.
-// Сценарий: поток отклоняет запись с ошибкой errWriteFailed.
-// Ожидается: run возвращает эту же ошибку (проверка через errors.Is).
+// RU: Проверяет, что ошибка вывода адреса сервера не игнорируется.
+// Сценарий: run получает поток, возвращающий errWriteFailed.
+// Ожидается: errors.Is обнаруживает исходную ошибку записи.
 func TestRunReturnsOutputError(t *testing.T) {
-	if err := run(failingWriter{}); !errors.Is(err, errWriteFailed) {
+	if err := run(context.Background(), failingWriter{}, "0"); !errors.Is(err, errWriteFailed) {
 		t.Fatalf("run() error = %v, want %v", err, errWriteFailed)
 	}
 }
