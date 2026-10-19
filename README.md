@@ -18,9 +18,7 @@ Go 1.23 or newer is required to run from source.
 go run ./cmd/thesisflow
 ```
 
-Open **http://127.0.0.1:8080/** manually in your browser. Stop the local server with **Ctrl+C**. The server listens only on the loopback interface; other computers cannot connect.
-
-If port 8080 is already in use, the program reports an error and exits instead of silently changing its listening address.
+The program prints a local URL such as **http://127.0.0.1:37893/** (the port changes at each startup). Open the **printed URL** manually in your browser. Stop the local server with **Ctrl+C**. The server listens only on the loopback interface; other computers cannot connect.
 
 ### Test
 
@@ -41,9 +39,7 @@ See [docs/testing.md](docs/testing.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 go run ./cmd/thesisflow
 ```
 
-Откройте в браузере адрес **http://127.0.0.1:8080/** вручную. Для остановки сервера нажмите **Ctrl+C**. Сервер слушает только loopback-интерфейс; подключиться с другого компьютера нельзя.
-
-Если порт 8080 уже занят, программа сообщает об ошибке и завершает работу, не переключаясь незаметно на другой адрес.
+Программа выводит локальный адрес, например **http://127.0.0.1:37893/** (порт меняется при каждом запуске). Вручную откройте в браузере **адрес из консоли**. Для остановки сервера нажмите **Ctrl+C**. Сервер слушает только loopback-интерфейс; подключиться с другого компьютера нельзя.
 
 ### Тестирование
 
