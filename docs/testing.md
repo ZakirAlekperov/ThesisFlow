@@ -25,11 +25,13 @@ Current coverage:
 | --- | --- |
 | `TestNewHandlerServesHomePage` | GET `/` returns HTML page named ThesisFlow. |
 | `TestNewHandlerRejectsUnsupportedRoutes` | Unknown paths return 404 and unsupported methods return 405. |
-| `TestRunStartsLoopbackHTTPAndStops` | Starts a real HTTP listener on 127.0.0.1, serves the homepage and stops after cancellation. |
+| `TestRunStartsLoopbackHTTPAndOpensBrowser` | Opens the local URL exactly once, serves the homepage and shuts down cleanly. |
 | `TestRunFailsOnOccupiedPort` | Reports an error when the requested loopback port is occupied. |
 | `TestRunReturnsOutputError` | Reports the writer error while announcing the HTTP address. |
+| `TestRunKeepsServerAliveWhenBrowserFails` | Browser-launch errors are nonfatal and a manual URL remains available. |
+| `TestCommandForOS` | Selects shell-free launch commands for Windows, macOS and Linux; rejects unsupported platforms. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. Browser auto-opening, SQLite initialization and file storage have **not** been implemented or tested yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). SQLite initialization and file storage have **not** been implemented or tested yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -56,8 +58,10 @@ go vet ./...
 | --- | --- |
 | `TestNewHandlerServesHomePage` | GET `/` возвращает HTML-страницу ThesisFlow. |
 | `TestNewHandlerRejectsUnsupportedRoutes` | Неизвестные пути возвращают 404, неподдерживаемые методы — 405. |
-| `TestRunStartsLoopbackHTTPAndStops` | Запускает HTTP-сервер на 127.0.0.1, обслуживает главную страницу и останавливается после отмены. |
+| `TestRunStartsLoopbackHTTPAndOpensBrowser` | Передаёт локальный URL в браузер один раз, обслуживает главную страницу и корректно останавливается. |
 | `TestRunFailsOnOccupiedPort` | Возвращает ошибку, если указанный локальный порт занят. |
 | `TestRunReturnsOutputError` | Передаёт ошибку записи при выводе адреса сервера. |
+| `TestRunKeepsServerAliveWhenBrowserFails` | Ошибка открытия браузера не останавливает сервер, адрес остаётся доступен вручную. |
+| `TestCommandForOS` | Выбирает команды без оболочки для Windows, macOS и Linux; неизвестные платформы отклоняет. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Автоматическое открытие браузера, инициализация SQLite и файловое хранилище пока **не** реализованы и не проверены. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). Инициализация SQLite и файловое хранилище пока **не** реализованы и не проверены. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
