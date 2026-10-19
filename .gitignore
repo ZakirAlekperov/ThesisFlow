@@ -1,0 +1,38 @@
+# Go build artifacts / Результаты сборки Go
+/bin/
+/build/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+*.prof
+
+# Local application data / Локальные данные приложения
+/data/
+/storage/
+/backups/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Local configuration / Локальная конфигурация
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems / Редакторы и ОС
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
