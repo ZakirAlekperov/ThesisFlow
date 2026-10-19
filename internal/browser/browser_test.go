@@ -14,12 +14,12 @@ import (
 // Ожидается: исходный URL передаётся без изменений; неизвестная ОС отклоняется.
 func TestCommandForOS(t *testing.T) {
 	const address = "http://127.0.0.1:34567/"
-	cases := []struct{
-		name string
-		goos string
-		wantExe string
+	cases := []struct {
+		name     string
+		goos     string
+		wantExe  string
 		wantArgs []string
-		wantErr bool
+		wantErr  bool
 	}{
 		{"macOS", "darwin", "open", []string{address}, false},
 		{"Windows", "windows", "rundll32", []string{"url.dll,FileProtocolHandler", address}, false},
