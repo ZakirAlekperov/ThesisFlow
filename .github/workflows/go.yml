@@ -25,6 +25,18 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      # TEMPORARY: generate reproducible dependency lockfiles for the first SQLite dependency.
+      - name: Bootstrap SQLite dependency lockfiles
+        shell: bash
+        run: |
+          go mod tidy
+          echo '===THESISFLOW_GO_MOD_START==='
+          cat go.mod
+          echo '===THESISFLOW_GO_MOD_END==='
+          echo '===THESISFLOW_GO_SUM_START==='
+          cat go.sum
+          echo '===THESISFLOW_GO_SUM_END==='
+
       - name: Check Go formatting
         shell: bash
         run: |
