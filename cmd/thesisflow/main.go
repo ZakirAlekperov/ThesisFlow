@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
@@ -94,6 +95,12 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		return fmt.Errorf("initialize local database: %w", err)
 	}
 	defer db.Close()
+
+	// Create the group schema before allowing the UI to accept requests.
+	// RU: Таблица групп создаётся до запуска пользовательского интерфейса.
+	if err := groups.NewRepository(db).Init(ctx); err != nil {
+		return fmt.Errorf("initialize academic groups: %w", err)
+	}
 	return run(ctx, output, port, openBrowser)
 }
 
