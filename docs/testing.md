@@ -25,8 +25,10 @@ Current coverage:
 | --- | --- |
 | `TestRunWritesApplicationName` | Writes exactly `ThesisFlow\n` on successful startup output. |
 | `TestRunReturnsOutputError` | Returns the writer's error instead of silently ignoring it. |
+| `TestNewHandlerServesHomePage` | GET `/` returns HTML page named ThesisFlow. |
+| `TestNewHandlerRejectsUnsupportedRoutes` | Unknown paths return 404 and unsupported methods return 405. |
 
-These tests do **not** verify HTTP serving, browser startup, SQLite initialization, or file storage; those features have not been implemented yet.
+The web tests use `httptest` and verify the handler without opening a listening socket. A running HTTP server, browser startup, SQLite initialization and file storage have **not** been implemented or tested yet.
 
 ## Русский
 
@@ -53,5 +55,7 @@ go vet ./...
 | --- | --- |
 | `TestRunWritesApplicationName` | При успешной записи выводит строго `ThesisFlow\n`. |
 | `TestRunReturnsOutputError` | Возвращает ошибку потока, а не игнорирует её. |
+| `TestNewHandlerServesHomePage` | GET `/` возвращает HTML-страницу ThesisFlow. |
+| `TestNewHandlerRejectsUnsupportedRoutes` | Неизвестные пути возвращают 404, неподдерживаемые методы — 405. |
 
-Проверки пока **не** охватывают HTTP-сервер, открытие браузера, инициализацию SQLite и файловое хранилище: эти функции ещё не реализованы.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Запуск работающего HTTP-сервера, открытие браузера, инициализация SQLite и файловое хранилище пока **не** реализованы и не проверены.
