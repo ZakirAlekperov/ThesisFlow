@@ -30,8 +30,13 @@ Current coverage:
 | `TestRunReturnsOutputError` | Reports the writer error while announcing the HTTP address. |
 | `TestRunKeepsServerAliveWhenBrowserFails` | Browser-launch errors are nonfatal and a manual URL remains available. |
 | `TestCommandForOS` | Selects shell-free launch commands for Windows, macOS and Linux; rejects unsupported platforms. |
+| `TestOpenCreatesDatabase` | Creates SQLite file in a missing directory and enables foreign keys. |
+| `TestOpenPreservesData` | Preserves a saved record across close and reopen. |
+| `TestOpenRejectsInvalidPath` | Reports an invalid directory rather than silently switching paths. |
+| `TestOpenRespectsCancellation` | Does not create the DB if the startup context is already cancelled. |
+| `TestStartInitializesLocalDatabase` | Initializes SQLite before opening the HTTP interface. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). SQLite initialization and file storage have **not** been implemented or tested yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Domain tables, migrations and document storage have **not** been implemented yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -63,5 +68,10 @@ go vet ./...
 | `TestRunReturnsOutputError` | Передаёт ошибку записи при выводе адреса сервера. |
 | `TestRunKeepsServerAliveWhenBrowserFails` | Ошибка открытия браузера не останавливает сервер, адрес остаётся доступен вручную. |
 | `TestCommandForOS` | Выбирает команды без оболочки для Windows, macOS и Linux; неизвестные платформы отклоняет. |
+| `TestOpenCreatesDatabase` | Создаёт SQLite в новом каталоге и включает внешние ключи. |
+| `TestOpenPreservesData` | Сохраняет запись после закрытия и повторного открытия. |
+| `TestOpenRejectsInvalidPath` | Сообщает о недопустимом каталоге, не меняя путь молча. |
+| `TestOpenRespectsCancellation` | Не создаёт БД при заранее отменённом контексте. |
+| `TestStartInitializesLocalDatabase` | Создаёт SQLite перед открытием HTTP-интерфейса. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). Инициализация SQLite и файловое хранилище пока **не** реализованы и не проверены. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Предметные таблицы, миграции и файловое хранилище пока **не** реализованы. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.

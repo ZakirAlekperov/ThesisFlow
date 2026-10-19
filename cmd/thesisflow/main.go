@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
 
@@ -81,11 +83,39 @@ func run(ctx context.Context, output io.Writer, port string, openBrowser func(st
 	}
 }
 
+// start opens the persistent database before exposing the HTTP interface.
+// Closing the server also closes the database connection.
+//
+// RU: start открывает постоянную базу до запуска HTTP-интерфейса.
+// При завершении работы соединение с базой закрывается.
+func start(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error) error {
+	db, err := sqlite.Open(ctx, databasePath)
+	if err != nil {
+		return fmt.Errorf("initialize local database: %w", err)
+	}
+	defer db.Close()
+	return run(ctx, output, port, openBrowser)
+}
+
+// launch chooses a per-user directory so an installation does not require
+// elevated privileges or additional database services.
+//
+// RU: launch использует пользовательский каталог; права администратора ОС
+// и отдельный сервер базы данных для установки не требуются.
+func launch(ctx context.Context, output io.Writer, openBrowser func(string) error) error {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return fmt.Errorf("find user configuration directory: %w", err)
+	}
+	databasePath := filepath.Join(configDir, "ThesisFlow", "thesisflow.sqlite")
+	return start(ctx, output, localPort, databasePath, openBrowser)
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, os.Stdout, localPort, browser.Open); err != nil {
+	if err := launch(ctx, os.Stdout, browser.Open); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
