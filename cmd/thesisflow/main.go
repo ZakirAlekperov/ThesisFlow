@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
 
@@ -23,12 +24,14 @@ const localPort = "0"
 
 // run starts the HTTP interface on the loopback address and waits until the
 // context is canceled. Port "0" selects a free ephemeral port for tests.
-// The application reports the listening URL and propagates startup I/O errors.
+// The application reports the listening URL, attempts to open a browser,
+// and propagates startup errors. Browser launch failures are nonfatal.
 //
 // RU: run запускает HTTP-интерфейс только на loopback-адресе и работает до
 // отмены контекста. Порт "0" позволяет тестам выбрать свободный порт.
-// Функция выводит адрес сервера и возвращает ошибки запуска или вывода.
-func run(ctx context.Context, output io.Writer, port string) error {
+// Функция выводит адрес, пытается открыть браузер и возвращает ошибки
+// запуска или вывода. Ошибка открытия браузера не прерывает работу сервера.
+func run(ctx context.Context, output io.Writer, port string, openBrowser func(string) error) error {
 	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", port))
 	if err != nil {
 		return fmt.Errorf("listen on localhost: %w", err)
@@ -47,6 +50,12 @@ func run(ctx context.Context, output io.Writer, port string) error {
 
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- server.Serve(listener) }()
+
+	// Browser launch is best-effort; headless systems can use the printed URL.
+	// RU: Ошибка открытия браузера не останавливает локальный сервер.
+	if err := openBrowser(address); err != nil {
+		_, _ = fmt.Fprintf(output, "Browser was not opened automatically: %v. Open %s manually.\n", err, address)
+	}
 
 	select {
 	case err := <-serveResult:
@@ -76,7 +85,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx, os.Stdout, localPort); err != nil {
+	if err := run(ctx, os.Stdout, localPort, browser.Open); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
