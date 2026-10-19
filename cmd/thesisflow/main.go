@@ -17,7 +17,9 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
 
-const localPort = "8080"
+// localPort asks the OS to choose a free local port.
+// RU: ОС автоматически выбирает свободный локальный порт.
+const localPort = "0"
 
 // run starts the HTTP interface on the loopback address and waits until the
 // context is canceled. Port "0" selects a free ephemeral port for tests.
