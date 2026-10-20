@@ -24,6 +24,9 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Show formatting suggestions
+        run: gofmt -d .
+
       - name: Check Go formatting
         shell: bash
         run: |
