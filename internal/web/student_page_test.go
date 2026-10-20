@@ -15,9 +15,14 @@ import (
 // fakeStudentLister supplies student records or a controlled error.
 // RU: fakeStudentLister возвращает заданные записи студентов либо ошибку.
 type fakeStudentLister struct {
-	items []students.Student
-	err   error
-	calls []int64
+	items             []students.Student
+	err               error
+	createErr         error
+	calls             []int64
+	created           int
+	lastGroupID       int64
+	lastName          string
+	lastEducationalID string
 }
 
 func (f *fakeStudentLister) ListByGroup(_ context.Context, id int64) ([]students.Student, error) {
@@ -32,6 +37,26 @@ func (f *fakeStudentLister) ListByGroup(_ context.Context, id int64) ([]students
 		}
 	}
 	return result, nil
+}
+
+
+// Create tracks writes and updates the in-memory list for redirect tests.
+// RU: Create запоминает попытки записи и добавляет студента в тестовый список.
+func (f *fakeStudentLister) Create(_ context.Context, groupID int64, educationalID, fullName string) (students.Student, error) {
+	f.created++
+	f.lastGroupID = groupID
+	f.lastName = fullName
+	f.lastEducationalID = educationalID
+	if f.createErr != nil {
+		return students.Student{}, f.createErr
+	}
+	student := students.Student{
+		ID: int64(len(f.items) + 1), GroupID: groupID,
+		EducationalID: strings.TrimSpace(educationalID),
+		FullName: strings.TrimSpace(fullName),
+	}
+	f.items = append(f.items, student)
+	return student, nil
 }
 
 // newTestHandlerWithStudents provides the group and student test repositories.
