@@ -1,0 +1,28 @@
+name: Temporary readiness formatting
+on:
+  push:
+    branches: [feature/0.1.08-readiness]
+permissions:
+  contents: write
+jobs:
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.1.08-readiness
+          persist-credentials: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Apply gofmt
+        run: |
+          gofmt -w .
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add -u
+            git commit -m "style: gofmt readiness tests"
+            git push origin HEAD:feature/0.1.08-readiness
+          fi
