@@ -3,36 +3,44 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"errors"
 	"html/template"
+	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 )
 
-// StudentLister supplies the read-only student records for a selected group.
-// The production implementation is backed by SQLite.
+// StudentStore provides student reads and creation for the group page.
+// The production implementation uses the existing SQLite repository.
 //
-// RU: StudentLister читает студентов выбранной группы без права изменения.
-// В рабочем приложении данные поступают из SQLite.
-type StudentLister interface {
+// RU: StudentStore читает и создаёт студентов выбранной группы.
+// Рабочая реализация использует существующий SQLite-репозиторий.
+type StudentStore interface {
 	ListByGroup(context.Context, int64) ([]students.Student, error)
+	Create(context.Context, int64, string, string) (students.Student, error)
 }
 
 // groupStudentsData supplies the escaped group detail HTML template.
 // RU: groupStudentsData передаёт данные в безопасный шаблон страницы группы.
 type groupStudentsData struct {
-	Group    groups.Group
-	Students []students.Student
+	Group         groups.Group
+	Students      []students.Student
+	CSRFToken     string
+	FullName      string
+	EducationalID string
+	Error         string
 }
 
-// groupStudentsTemplate is a read-only page requiring no client JavaScript.
-// html/template automatically escapes names and educational identifiers.
+// groupStudentsTemplate renders the student form and list without JavaScript.
+// html/template escapes names, entered values and educational identifiers.
 //
-// RU: groupStudentsTemplate — страница просмотра без JavaScript.
-// html/template автоматически экранирует ФИО и учебные идентификаторы.
+// RU: groupStudentsTemplate показывает форму и список без JavaScript.
+// html/template экранирует ФИО, значения формы и учебные идентификаторы.
 var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`<!doctype html>
 <html lang="ru">
 <head>
@@ -50,6 +58,12 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     .subtitle { color: #596578; margin-bottom: 36px; line-height: 1.6; }
     .panel { background: white; border: 1px solid #e4e8f0; border-radius: 16px; padding: 24px; }
     h2 { font-size: 1.25rem; margin-top: 0; }
+    .student-form { display: grid; gap: 12px; margin-bottom: 24px; }
+    .student-form label { font-weight: 600; }
+    .student-form input[type=text] { width: 100%; padding: 11px 12px; border: 1px solid #bfc9d7; border-radius: 8px; font: inherit; }
+    .student-form button { justify-self: start; border: 0; border-radius: 8px; background: #214eaf; color: white; font: inherit; font-weight: 600; padding: 11px 18px; cursor: pointer; }
+    .student-form :focus-visible { outline: 2px solid #214eaf; outline-offset: 2px; }
+    .form-error { color: #a51d2d; margin: -12px 0 20px; }
     .student-list { list-style: none; margin: 0; padding: 0; }
     .student-list li { padding: 15px 0; border-top: 1px solid #e4e8f0; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
     .student-list li:first-child { border-top: 0; }
@@ -65,6 +79,15 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     <p class="subtitle">Список студентов учебной группы.</p>
     <section class="panel" aria-labelledby="students-heading">
       <h2 id="students-heading">Студенты</h2>
+      <form class="student-form" action="/groups/{{.Group.ID}}/students" method="post">
+        <label for="student-full-name">ФИО студента</label>
+        <input id="student-full-name" type="text" name="full_name" value="{{.FullName}}" placeholder="Иванов Иван Иванович" required autocomplete="name">
+        <label for="student-educational-id">Учебный ID (номер зачётки)</label>
+        <input id="student-educational-id" type="text" name="educational_id" value="{{.EducationalID}}" placeholder="ЗК-0017" required autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <button type="submit">Добавить студента</button>
+      </form>
+      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
       {{if .Students}}
       <ul class="student-list">
         {{range .Students}}
@@ -83,52 +106,141 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
 </html>
 `))
 
-// renderGroupStudents validates the URL, resolves a group by its permanent ID,
-// and displays only that group's students. Invalid/missing groups yield 404;
-// storage failures yield a generic 500 without leaking internal details.
+// findGroup resolves an existing academic group by its permanent ID.
+// A missing group is distinguished from a database failure.
 //
-// RU: renderGroupStudents проверяет ID, находит группу и показывает только
-// её студентов. Для отсутствующих групп возвращается 404, при ошибках БД —
-// общее сообщение 500 без раскрытия внутренних подробностей.
-func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentLister) {
-	groupID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || groupID <= 0 {
-		http.NotFound(w, r)
-		return
-	}
-
-	allGroups, err := groupStore.List(r.Context())
+// RU: findGroup находит учебную группу по постоянному ID и отличает
+// отсутствие группы от ошибки чтения SQLite.
+func findGroup(ctx context.Context, store GroupStore, groupID int64) (groups.Group, error) {
+	allGroups, err := store.List(ctx)
 	if err != nil {
-		http.Error(w, "Не удалось загрузить учебную группу.", http.StatusInternalServerError)
-		return
+		return groups.Group{}, err
 	}
-	var selected groups.Group
 	for _, item := range allGroups {
 		if item.ID == groupID {
-			selected = item
-			break
+			return item, nil
 		}
 	}
-	if selected.ID == 0 {
+	return groups.Group{}, students.ErrGroupNotFound
+}
+
+// parseGroupPathID validates the numeric group ID from the HTTP route.
+// RU: parseGroupPathID проверяет числовой ID из адреса группы.
+func parseGroupPathID(r *http.Request) (int64, error) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return 0, students.ErrGroupNotFound
+	}
+	return id, nil
+}
+
+// renderGroupStudents displays the selected group's students and any form
+// validation error. Unknown groups return 404; storage failures return 500.
+//
+// RU: renderGroupStudents показывает студентов и ошибку заполнения формы.
+// Несуществующие группы дают 404; ошибки SQLite дают общий HTTP 500.
+func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentStore, token, name, educationalID, message string, status int) {
+	groupID, err := parseGroupPathID(r)
+	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-
+	group, err := findGroup(r.Context(), groupStore, groupID)
+	if err != nil {
+		if errors.Is(err, students.ErrGroupNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Не удалось загрузить учебную группу.", http.StatusInternalServerError)
+		}
+		return
+	}
 	items, err := studentStore.ListByGroup(r.Context(), groupID)
 	if err != nil {
 		if errors.Is(err, students.ErrGroupNotFound) {
 			http.NotFound(w, r)
-			return
+		} else {
+			http.Error(w, "Не удалось загрузить список студентов.", http.StatusInternalServerError)
 		}
-		http.Error(w, "Не удалось загрузить список студентов.", http.StatusInternalServerError)
 		return
 	}
-
 	var rendered bytes.Buffer
-	if err := groupStudentsTemplate.Execute(&rendered, groupStudentsData{Group: selected, Students: items}); err != nil {
+	if err := groupStudentsTemplate.Execute(&rendered, groupStudentsData{
+		Group: group, Students: items, CSRFToken: token,
+		FullName: name, EducationalID: educationalID, Error: message,
+	}); err != nil {
 		http.Error(w, "Не удалось отобразить страницу группы.", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
 	_, _ = w.Write(rendered.Bytes())
+}
+
+// createStudentFromForm validates an HTTP form before writing a student.
+// It uses the same per-process CSRF token as the existing group form and
+// redirects after a successful insert to avoid duplicate submissions.
+//
+// RU: createStudentFromForm проверяет форму до записи в SQLite, использует
+// общий CSRF-токен приложения и перенаправляет после успешного создания.
+func createStudentFromForm(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentStore, token string) {
+	groupID, err := parseGroupPathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/x-www-form-urlencoded" {
+		http.Error(w, "Неподдерживаемый формат формы.", http.StatusUnsupportedMediaType)
+		return
+	}
+	// Limit request bodies and reject data that exceeds the form's capacity.
+	// RU: Ограничиваем тело запроса и отклоняем слишком большие формы.
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := r.ParseForm(); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "Размер формы превышен.", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "Не удалось прочитать форму.", http.StatusBadRequest)
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")), []byte(token)) != 1 {
+		http.Error(w, "Недействительный запрос.", http.StatusForbidden)
+		return
+	}
+	if _, err := findGroup(r.Context(), groupStore, groupID); err != nil {
+		if errors.Is(err, students.ErrGroupNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Не удалось загрузить учебную группу.", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	fullName := r.PostForm.Get("full_name")
+	educationalID := r.PostForm.Get("educational_id")
+	_, err = studentStore.Create(r.Context(), groupID, educationalID, fullName)
+	if err != nil {
+		message := ""
+		status := http.StatusBadRequest
+		switch {
+		case errors.Is(err, students.ErrInvalidFullName):
+			message = "Введите ФИО студента."
+		case errors.Is(err, students.ErrInvalidEducationalID):
+			message = "Введите учебный ID студента."
+		case errors.Is(err, students.ErrDuplicateEducationalID):
+			message = "Студент с таким учебным ID уже существует."
+			status = http.StatusConflict
+		case errors.Is(err, students.ErrGroupNotFound):
+			http.NotFound(w, r)
+			return
+		default:
+			http.Error(w, "Не удалось добавить студента.", http.StatusInternalServerError)
+			return
+		}
+		renderGroupStudents(w, r, groupStore, studentStore, token, fullName, strings.TrimSpace(educationalID), message, status)
+		return
+	}
+	http.Redirect(w, r, "/groups/"+strconv.FormatInt(groupID, 10), http.StatusSeeOther)
 }
