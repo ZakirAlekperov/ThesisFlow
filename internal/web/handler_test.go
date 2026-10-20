@@ -19,7 +19,7 @@ func TestNewHandlerServesHomePage(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 
-	NewHandler().ServeHTTP(response, request)
+	NewHandler(fakeGroupLister{}).ServeHTTP(response, request)
 
 	result := response.Result()
 	defer result.Body.Close()
@@ -65,7 +65,7 @@ func TestNewHandlerRejectsUnsupportedRoutes(t *testing.T) {
 			request := httptest.NewRequest(test.method, test.path, nil)
 			response := httptest.NewRecorder()
 
-			NewHandler().ServeHTTP(response, request)
+			NewHandler(fakeGroupLister{}).ServeHTTP(response, request)
 
 			if got := response.Code; got != test.want {
 				t.Errorf("status = %d, want %d", got, test.want)
