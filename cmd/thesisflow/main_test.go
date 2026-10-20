@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-
 // testHTTPHandler is a minimal handler for HTTP server lifecycle tests.
 // The real SQLite-backed page is covered by TestStartServesGroupsFromSQLite.
 //
