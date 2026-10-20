@@ -118,14 +118,14 @@ func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token,
 	_, _ = w.Write(rendered.Bytes())
 }
 
-// NewHandler constructs the localhost web UI with a separate student reader
+// NewHandler constructs the localhost web UI with a student read/write store
 // and a random per-process CSRF token. It returns an error if secure randomness
 // is unavailable instead of exposing an unprotected writable route.
 //
-// RU: NewHandler создаёт локальный интерфейс с отдельным источником студентов
+// RU: NewHandler создаёт локальный интерфейс с отдельным хранилищем студентов
 // и случайным CSRF-токеном на время работы приложения. При недоступности
 // безопасной случайности защищённый обработчик не создаётся.
-func NewHandler(store GroupStore, studentStore StudentLister) (http.Handler, error) {
+func NewHandler(store GroupStore, studentStore StudentStore) (http.Handler, error) {
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, fmt.Errorf("create form protection token: %w", err)
@@ -137,7 +137,10 @@ func NewHandler(store GroupStore, studentStore StudentLister) (http.Handler, err
 		renderHome(w, r, store, token, "", "", http.StatusOK)
 	})
 	mux.HandleFunc("GET /groups/{id}", func(w http.ResponseWriter, r *http.Request) {
-		renderGroupStudents(w, r, store, studentStore)
+		renderGroupStudents(w, r, store, studentStore, token, "", "", "", http.StatusOK)
+	})
+	mux.HandleFunc("POST /groups/{id}/students", func(w http.ResponseWriter, r *http.Request) {
+		createStudentFromForm(w, r, store, studentStore, token)
 	})
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {
 		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))

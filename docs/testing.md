@@ -77,6 +77,15 @@ Current coverage:
 | `TestGroupPageHidesDatabaseErrors` | Uses generic HTTP 500 messages rather than revealing storage failures. |
 | `TestGroupPageRejectsWriteMethods` | Keeps the new student page read-only with HTTP 405. |
 | `TestStartServesPersistedStudentsByGroup` | Serves existing group students through the real SQLite-backed HTTP server. |
+| `TestStudentFormAppearsOnGroupPage` | Displays a labeled, group-scoped student form with CSRF token. |
+| `TestStudentFormCreatesAndRedirects` | Creates in the selected group once and redirects using HTTP 303. |
+| `TestStudentFormDisplaysValidationErrors` | Handles missing fields and duplicate IDs with readable errors. |
+| `TestStudentFormRejectsInvalidTokens` | Rejects forged or missing CSRF tokens before writing data. |
+| `TestStudentFormRejectsInvalidGroup` | Returns 404 for missing or invalid group IDs without writing. |
+| `TestStudentFormRejectsOversizedAndUnsupportedBodies` | Rejects oversized or non-form POST requests. |
+| `TestStudentFormHidesInternalErrors` | Does not disclose private storage errors to the browser. |
+| `TestStudentFormEscapesSubmittedValues` | Escapes potentially malicious form values on validation failures. |
+| `TestStartCreatesStudentFromGroupPage` | Persists a student via a real HTTP form and SQLite restart. |
 | `TestStartInitializesStudentsSchema` | Initializes the students table before HTTP startup. |
 
 The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Group and student tables are initialized. Full schema migrations, student pages, editing, archiving, Excel import and document storage have **not** been implemented yet. Student tests use temporary SQLite files and leave the user's database unchanged. Browser group creation is covered by CSRF and HTTP integration tests. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
@@ -158,6 +167,15 @@ go vet ./...
 | `TestGroupPageHidesDatabaseErrors` | Возвращает общий HTTP 500, не раскрывая подробности SQLite. |
 | `TestGroupPageRejectsWriteMethods` | Не разрешает запись на странице студентов (HTTP 405). |
 | `TestStartServesPersistedStudentsByGroup` | Показывает сохранённых студентов через настоящий HTTP-сервер и SQLite. |
+| `TestStudentFormAppearsOnGroupPage` | Показывает подписанные поля студента с CSRF-токеном. |
+| `TestStudentFormCreatesAndRedirects` | Добавляет студента в нужную группу и возвращает HTTP 303. |
+| `TestStudentFormDisplaysValidationErrors` | Отображает ошибки пустых полей и повторного учебного номера. |
+| `TestStudentFormRejectsInvalidTokens` | Запрещает запись без подлинного CSRF-токена. |
+| `TestStudentFormRejectsInvalidGroup` | Отклоняет запись в несуществующие и некорректные группы. |
+| `TestStudentFormRejectsOversizedAndUnsupportedBodies` | Отклоняет слишком большие формы и неверный тип содержимого. |
+| `TestStudentFormHidesInternalErrors` | Не раскрывает детали ошибок SQLite в интерфейсе. |
+| `TestStudentFormEscapesSubmittedValues` | Экранирует ввод пользователя при повторном отображении формы. |
+| `TestStartCreatesStudentFromGroupPage` | Проверяет HTTP-форму и сохранность студента после перезапуска. |
 | `TestStartInitializesStudentsSchema` | Создаёт таблицу студентов до запуска HTTP-сервера. |
 
 HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Инициализируются таблицы групп и студентов. Полноценные миграции схемы, страницы студентов, редактирование, архивирование, импорт Excel и файловое хранилище пока **не** реализованы. Тесты студентов используют временную SQLite и не затрагивают базу пользователя. Создание групп в браузере проверяется с учётом CSRF и HTTP-интеграции. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
