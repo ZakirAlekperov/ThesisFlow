@@ -25,6 +25,9 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Show pending formatting differences (temporary)
+        run: gofmt -d internal/web/handler.go
+
       - name: Check Go formatting
         shell: bash
         run: |
