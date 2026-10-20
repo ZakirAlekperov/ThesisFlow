@@ -183,9 +183,9 @@ func formDetail(w http.ResponseWriter,r *http.Request,groupStore GroupStore,stud
 	r.Body=http.MaxBytesReader(w,r.Body,maxSize)
 	if multipartForm {
 		err=r.ParseMultipartForm(1<<20)
-		if r.MultipartForm!=nil {defer r.MultipartForm.RemoveAll()}
 	} else {err=r.ParseForm()}
 	if err!=nil {
+		if r.MultipartForm!=nil {_ = r.MultipartForm.RemoveAll()}
 		var large *http.MaxBytesError
 		if errors.As(err,&large){http.Error(w,"Размер файла или формы превышен.",413)}else{http.Error(w,"Некорректная форма.",400)}
 		return students.Student{},false
@@ -211,6 +211,7 @@ func validRequirement(ctx context.Context,detail *DetailService,student students
 func uploadStudentDocument(w http.ResponseWriter,r *http.Request,groupsStore GroupStore,studentsStore StudentStore,detail *DetailService,token string) {
 	student,ok:=formDetail(w,r,groupsStore,studentsStore,token,true)
 	if !ok{return}
+	if r.MultipartForm!=nil {defer r.MultipartForm.RemoveAll()}
 	requirementID,err:=strconv.ParseInt(r.PostForm.Get("requirement_id"),10,64)
 	if err!=nil || requirementID<=0 {http.Error(w,"Не выбран документ.",400);return}
 	valid,err:=validRequirement(r.Context(),detail,student,requirementID)
