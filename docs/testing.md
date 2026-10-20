@@ -49,8 +49,15 @@ Current coverage:
 | `TestHomePageEscapesGroupNames` | Escapes HTML-like group names so they cannot inject markup. |
 | `TestHomePageHandlesGroupQueryError` | Responds with generic HTTP 500 on data-access errors without leaking details. |
 | `TestStartServesGroupsFromSQLite` | Loads an existing SQLite group through the real HTTP startup path. |
+| `TestGroupFormIsAvailable` | Exposes accessible POST form and a random CSRF token. |
+| `TestGroupFormCreatesAndRedirects` | Calls Create once and redirects with 303 on success. |
+| `TestGroupFormShowsValidationErrors` | Shows errors for blank or duplicate names and preserves input. |
+| `TestGroupFormRejectsMissingAndIncorrectCSRFToken` | Blocks unauthorized POSTs before writing data. |
+| `TestGroupFormRejectsOversizeBody` | Rejects oversized input without database writes. |
+| `TestGroupFormHidesStorageErrors` | Hides internal database failure details from browser. |
+| `TestStartCreatesGroupThroughBrowser` | Submits a real browser form and persists the group after shutdown. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the browser form for creating groups have **not** been implemented yet. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the student editing, archiving and document storage have **not** been implemented yet. Browser group creation is covered by CSRF and HTTP integration tests. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -101,5 +108,12 @@ go vet ./...
 | `TestHomePageEscapesGroupNames` | Экранирует HTML-подобные названия от внедрения разметки. |
 | `TestHomePageHandlesGroupQueryError` | Возвращает HTTP 500 без раскрытия деталей ошибки БД. |
 | `TestStartServesGroupsFromSQLite` | Показывает группу из существующей SQLite через настоящий HTTP-сервер. |
+| `TestGroupFormIsAvailable` | Показывает POST-форму и случайный CSRF-токен. |
+| `TestGroupFormCreatesAndRedirects` | Создаёт группу один раз и возвращает 303. |
+| `TestGroupFormShowsValidationErrors` | Показывает ошибки пустого или повторного названия с сохранением ввода. |
+| `TestGroupFormRejectsMissingAndIncorrectCSRFToken` | Блокирует посторонние POST до записи данных. |
+| `TestGroupFormRejectsOversizeBody` | Отклоняет слишком большие формы без изменения SQLite. |
+| `TestGroupFormHidesStorageErrors` | Скрывает внутренние подробности ошибки БД. |
+| `TestStartCreatesGroupThroughBrowser` | Отправляет настоящую форму и проверяет сохранность группы. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и форма создания групп в браузере пока **не** реализованы. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и изменение студентов, архивирование и файловое хранилище пока **не** реализованы. Создание групп в браузере проверяется с учётом CSRF и HTTP-интеграции. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.

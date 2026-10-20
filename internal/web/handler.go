@@ -5,27 +5,37 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
+	"errors"
+	"fmt"
 	"html/template"
+	"mime"
 	"net/http"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 )
 
-// GroupLister is the read-only interface required by the home page.
-// A narrow interface lets tests use a fake and production use SQLite.
+// GroupStore is the minimal group repository contract needed by the UI.
+// Tests use an in-memory fake, while production uses the SQLite repository.
 //
-// RU: GroupLister — минимальный интерфейс чтения групп для главной страницы.
-// В тестах используется имитатор, в приложении — хранилище SQLite.
-type GroupLister interface {
+// RU: GroupStore — минимальный контракт чтения и создания учебных групп.
+// Тесты используют имитатор, рабочее приложение — SQLite-репозиторий.
+type GroupStore interface {
 	List(context.Context) ([]groups.Group, error)
+	Create(context.Context, string) (groups.Group, error)
 }
 
 type homeData struct {
-	Groups []groups.Group
+	Groups    []groups.Group
+	CSRFToken string
+	Name      string
+	Error     string
 }
 
-// homePageTemplate escapes names from SQLite before including them in HTML.
-// RU: homePageTemplate автоматически экранирует названия групп из SQLite.
+// homePageTemplate escapes group names, form values and tokens automatically.
+// RU: homePageTemplate экранирует названия групп, значения формы и токен.
 var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
 <html lang="ru">
 <head>
@@ -41,6 +51,12 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     .subtitle { color: #596578; margin-bottom: 36px; line-height: 1.6; }
     .panel { background: white; border: 1px solid #e4e8f0; border-radius: 16px; padding: 24px; }
     h2 { margin-top: 0; font-size: 1.25rem; }
+    .group-form { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+    .group-form label { flex-basis: 100%; font-weight: 600; }
+    .group-form input[type=text] { flex: 1 1 240px; padding: 11px 12px; border: 1px solid #bfc9d7; border-radius: 8px; font: inherit; }
+    .group-form button { border: 0; border-radius: 8px; background: #214eaf; color: white; font: inherit; font-weight: 600; padding: 11px 18px; cursor: pointer; }
+    .group-form :focus-visible { outline: 2px solid #214eaf; outline-offset: 2px; }
+    .form-error { color: #a51d2d; margin: -12px 0 20px; }
     .group-list { padding: 0; margin: 0; list-style: none; }
     .group-list li { padding: 15px 0; border-top: 1px solid #e4e8f0; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
     .group-list li:first-child { border-top: 0; }
@@ -55,6 +71,13 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     <p class="subtitle">Локальный помощник преподавателя для учёта материалов ВКР.</p>
     <section class="panel" aria-labelledby="groups-heading">
       <h2 id="groups-heading">Учебные группы</h2>
+      <form class="group-form" action="/groups" method="post">
+        <label for="group-name">Название группы</label>
+        <input id="group-name" type="text" name="name" value="{{.Name}}" placeholder="Например, ИСП-401" required autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <button type="submit">Создать группу</button>
+      </form>
+      {{if .Error}}<p class="form-error" role="alert">{{.Error}}</p>{{end}}
       {{if .Groups}}
       <ul class="group-list">
         {{range .Groups}}
@@ -62,7 +85,7 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
         {{end}}
       </ul>
       {{else}}
-      <p class="empty">Группы пока не добавлены. Создание групп через браузер появится в следующем этапе.</p>
+      <p class="empty">Группы пока не добавлены.</p>
       {{end}}
     </section>
   </main>
@@ -70,31 +93,95 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
 </html>
 `))
 
-// NewHandler creates the local HTTP interface using a read-only group store.
-// GET / shows current saved groups; unknown paths and methods remain 404/405.
-// Read failures produce HTTP 500 without exposing internal storage details.
+// renderHome prepares complete HTML before sending headers. Database errors
+// are not exposed to the browser and never become a misleading empty state.
 //
-// RU: NewHandler создаёт локальный HTTP-интерфейс с чтением учебных групп.
-// GET / показывает сохранённые группы; остальные пути и методы дают 404/405.
-// При ошибке чтения возвращается HTTP 500 без раскрытия деталей хранилища.
-func NewHandler(lister GroupLister) http.Handler {
+// RU: renderHome формирует HTML до отправки заголовков; внутренние ошибки
+// БД не раскрываются и не маскируются под пустой список.
+func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token, name, message string, status int) {
+	items, err := store.List(r.Context())
+	if err != nil {
+		http.Error(w, "Не удалось загрузить список групп.", http.StatusInternalServerError)
+		return
+	}
+	var rendered bytes.Buffer
+	if err := homePageTemplate.Execute(&rendered, homeData{
+		Groups: items, CSRFToken: token, Name: name, Error: message,
+	}); err != nil {
+		http.Error(w, "Не удалось отобразить страницу.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = w.Write(rendered.Bytes())
+}
+
+// NewHandler constructs the localhost web UI and a random per-process CSRF
+// token. It returns an error if secure randomness is unavailable, rather than
+// exposing a writable route without CSRF protection.
+//
+// RU: NewHandler создаёт локальный интерфейс и случайный CSRF-токен на время
+// работы программы. При недоступности безопасной случайности возвращает
+// ошибку, а не открывает форму без защиты от подделки запросов.
+func NewHandler(store GroupStore) (http.Handler, error) {
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, fmt.Errorf("create form protection token: %w", err)
+	}
+	token := base64.RawURLEncoding.EncodeToString(secret)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		items, err := lister.List(r.Context())
-		if err != nil {
-			http.Error(w, "Не удалось загрузить список групп.", http.StatusInternalServerError)
+		renderHome(w, r, store, token, "", "", http.StatusOK)
+	})
+	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {
+		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil || mediaType != "application/x-www-form-urlencoded" {
+			http.Error(w, "Неподдерживаемый формат формы.", http.StatusUnsupportedMediaType)
 			return
 		}
 
-		// Prepare HTML before writing HTTP headers to avoid partial pages.
-		// RU: Готовим HTML до отправки заголовков, не выдавая неполную страницу.
-		var rendered bytes.Buffer
-		if err := homePageTemplate.Execute(&rendered, homeData{Groups: items}); err != nil {
-			http.Error(w, "Не удалось отобразить страницу.", http.StatusInternalServerError)
+		// Limit request bodies, including malicious oversized form submissions.
+		// RU: Ограничиваем тело запроса, в том числе при вредоносной отправке.
+		r.Body = http.MaxBytesReader(w, r.Body, 4096)
+		if err := r.ParseForm(); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				http.Error(w, "Размер формы превышен.", http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w, "Не удалось прочитать форму.", http.StatusBadRequest)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(rendered.Bytes())
+
+		if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")), []byte(token)) != 1 {
+			http.Error(w, "Недействительный запрос.", http.StatusForbidden)
+			return
+		}
+
+		name := r.PostForm.Get("name")
+		if _, err := store.Create(r.Context(), name); err != nil {
+			switch {
+			case errors.Is(err, groups.ErrInvalidName):
+				renderHome(w, r, store, token, name, "Введите название группы.", http.StatusBadRequest)
+			case errors.Is(err, groups.ErrDuplicateName):
+				renderHome(w, r, store, token, name, "Группа с таким названием уже существует.", http.StatusConflict)
+			default:
+				http.Error(w, "Не удалось создать группу.", http.StatusInternalServerError)
+			}
+			return
+		}
+		// PRG prevents duplicate insertions when the user refreshes the page.
+		// RU: Redirect после POST исключает повторную отправку при обновлении.
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	})
-	return mux
+
+	// The CSRF token must not be cached or leaked to unrelated websites.
+	// RU: Запрещаем кеширование токена и передачу его посторонним сайтам.
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		mux.ServeHTTP(w, r)
+	}), nil
 }
