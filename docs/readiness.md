@@ -25,3 +25,5 @@ separate integration work.
 
 Этот микрошаг добавляет Go-сервис. Вывод показателей в интерфейсе и
 редактирование сроков пока не подключены.
+
+Dependencies / Зависимости: PR #20 (review and accepted-file projection).
