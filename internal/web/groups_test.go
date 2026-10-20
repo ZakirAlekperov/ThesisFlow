@@ -42,7 +42,7 @@ func (f *fakeGroupLister) Create(_ context.Context, name string) (groups.Group, 
 // RU: newTestHandler создаёт настоящий обработчик и сообщает об ошибке создания.
 func newTestHandler(t *testing.T, store *fakeGroupLister) http.Handler {
 	t.Helper()
-	handler, err := NewHandler(store)
+	handler, err := NewHandler(store, &fakeStudentLister{})
 	if err != nil {
 		t.Fatalf("NewHandler(): %v", err)
 	}
