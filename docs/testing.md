@@ -63,6 +63,12 @@ Current coverage:
 | `TestCreateStudentSurvivesReopen` | Preserves all student fields and IDs across database restart. |
 | `TestStudentsTableEnforcesForeignKey` | Rejects orphan students even when inserted by direct SQL. |
 | `TestCreateStudentRespectsCancellation` | Propagates context cancellation and avoids writes. |
+| `TestListByGroupReturnsEmptySlice` | Returns an empty non-nil list for an existing group with no students. |
+| `TestListByGroupReturnsOnlyRequestedGroupInNameOrder` | Filters other groups and orders names and same-name records deterministically. |
+| `TestListByGroupRejectsUnknownGroup` | Distinguishes missing groups from existing empty groups. |
+| `TestListByGroupSurvivesReopen` | Preserves group-scoped records and student IDs across SQLite restart. |
+| `TestListByGroupRespectsCancellation` | Returns context cancellation without partial data. |
+| `TestListByGroupPropagatesDatabaseErrors` | Reports SQLite errors instead of a misleading empty list. |
 | `TestStartInitializesStudentsSchema` | Initializes the students table before HTTP startup. |
 
 The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Group and student tables are initialized. Full schema migrations, student pages, editing, archiving, Excel import and document storage have **not** been implemented yet. Student tests use temporary SQLite files and leave the user's database unchanged. Browser group creation is covered by CSRF and HTTP integration tests. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
@@ -130,6 +136,12 @@ go vet ./...
 | `TestCreateStudentSurvivesReopen` | Сохраняет все поля и постоянные ID после перезапуска SQLite. |
 | `TestStudentsTableEnforcesForeignKey` | Запрещает студентов без группы даже при прямом SQL-запросе. |
 | `TestCreateStudentRespectsCancellation` | Учитывает отмену контекста без записи данных. |
+| `TestListByGroupReturnsEmptySlice` | Для существующей группы без студентов возвращает пустой (не nil) срез. |
+| `TestListByGroupReturnsOnlyRequestedGroupInNameOrder` | Отделяет студентов нужной группы и сохраняет стабильный порядок. |
+| `TestListByGroupRejectsUnknownGroup` | Отличает несуществующую группу от существующей пустой. |
+| `TestListByGroupSurvivesReopen` | Сохраняет студенческие ID и список группы после перезапуска SQLite. |
+| `TestListByGroupRespectsCancellation` | Возвращает отмену контекста без частичных результатов. |
+| `TestListByGroupPropagatesDatabaseErrors` | Возвращает ошибки SQLite вместо вводящего в заблуждение пустого списка. |
 | `TestStartInitializesStudentsSchema` | Создаёт таблицу студентов до запуска HTTP-сервера. |
 
 HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Инициализируются таблицы групп и студентов. Полноценные миграции схемы, страницы студентов, редактирование, архивирование, импорт Excel и файловое хранилище пока **не** реализованы. Тесты студентов используют временную SQLite и не затрагивают базу пользователя. Создание групп в браузере проверяется с учётом CSRF и HTTP-интеграции. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
