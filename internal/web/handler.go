@@ -125,7 +125,7 @@ func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token,
 // RU: NewHandler создаёт локальный интерфейс с отдельным хранилищем студентов
 // и случайным CSRF-токеном на время работы приложения. При недоступности
 // безопасной случайности защищённый обработчик не создаётся.
-func NewHandler(store GroupStore, studentStore StudentStore) (http.Handler, error) {
+func NewHandler(store GroupStore, studentStore StudentStore, importers ...WorkbookImporter) (http.Handler, error) {
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, fmt.Errorf("create form protection token: %w", err)
@@ -142,6 +142,11 @@ func NewHandler(store GroupStore, studentStore StudentStore) (http.Handler, erro
 	mux.HandleFunc("POST /groups/{id}/students", func(w http.ResponseWriter, r *http.Request) {
 		createStudentFromForm(w, r, store, studentStore, token)
 	})
+	if len(importers) > 0 && importers[0] != nil {
+		mux.HandleFunc("POST /groups/{id}/import", func(w http.ResponseWriter, r *http.Request) {
+			importStudentsFromWorkbook(w, r, store, importers[0], token)
+		})
+	}
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {
 		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil || mediaType != "application/x-www-form-urlencoded" {
