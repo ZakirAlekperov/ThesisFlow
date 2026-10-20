@@ -120,7 +120,10 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
 	// Student pages use the same persistent SQLite connection.
 	// RU: Страницы студентов используют то же постоянное соединение SQLite.
-	handler, err := web.NewHandler(repo, students.NewRepository(db), importxlsx.Service{DB: db})
+	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
+		Workbook:     importxlsx.Service{DB: db},
+		Requirements: requirements.NewRepository(db),
+	})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)
 	}
