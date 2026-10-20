@@ -18,6 +18,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
@@ -109,6 +110,11 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Таблицу студентов создаём после таблицы учебных групп.
 	if err := students.NewRepository(db).Init(ctx); err != nil {
 		return fmt.Errorf("initialize students: %w", err)
+	}
+	// Requirements must exist before the HTTP interface is exposed.
+	// RU: Требования к документам создаются до запуска браузера.
+	if err := requirements.NewRepository(db).Init(ctx); err != nil {
+		return fmt.Errorf("initialize document requirements: %w", err)
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
