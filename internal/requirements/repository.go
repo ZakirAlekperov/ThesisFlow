@@ -43,7 +43,7 @@ type Requirement struct {
 // Repository persists requirements in SQLite without duplicating group-wide
 // requirements for every student.
 // RU: Repository хранит требования группы один раз, без копий у студентов.
-type Repository struct { db *sql.DB }
+type Repository struct{ db *sql.DB }
 
 // NewRepository uses the caller-owned initialized SQLite connection.
 // RU: NewRepository использует соединение SQLite вызывающей стороны.
@@ -143,28 +143,38 @@ func (r *Repository) Create(ctx context.Context, groupID, studentID int64, title
 	if err != nil {
 		return Requirement{}, fmt.Errorf("read requirement ID: %w", err)
 	}
-	return Requirement{ID:id, GroupID:groupID, StudentID:studentID, Title:title, DueDate:dueDate}, nil
+	return Requirement{ID: id, GroupID: groupID, StudentID: studentID, Title: title, DueDate: dueDate}, nil
 }
 
 // ListForGroup returns requirements shared by the entire group, ordered by
 // normalized title and permanent ID; personal requirements remain private.
 //
 // RU: ListForGroup выдаёт только общие требования группы в постоянном порядке.
-func (r *Repository) ListForGroup(ctx context.Context, groupID int64) ([]Requirement,error) {
-	if err := ctx.Err(); err != nil { return nil,err }
-	if groupID <= 0 { return nil,ErrInvalidScope }
-	rows,err:=r.db.QueryContext(ctx,`SELECT id,group_id,title,due_date FROM requirements
-		WHERE group_id=? AND student_id IS NULL ORDER BY title_key,id`,groupID)
-	if err!=nil {return nil,fmt.Errorf("list group requirements: %w",err)}
+func (r *Repository) ListForGroup(ctx context.Context, groupID int64) ([]Requirement, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if groupID <= 0 {
+		return nil, ErrInvalidScope
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id,group_id,title,due_date FROM requirements
+		WHERE group_id=? AND student_id IS NULL ORDER BY title_key,id`, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("list group requirements: %w", err)
+	}
 	defer rows.Close()
-	result:=make([]Requirement,0)
+	result := make([]Requirement, 0)
 	for rows.Next() {
 		var x Requirement
-		if err:=rows.Scan(&x.ID,&x.GroupID,&x.Title,&x.DueDate);err!=nil {return nil,fmt.Errorf("scan requirement: %w",err)}
-		result=append(result,x)
+		if err := rows.Scan(&x.ID, &x.GroupID, &x.Title, &x.DueDate); err != nil {
+			return nil, fmt.Errorf("scan requirement: %w", err)
+		}
+		result = append(result, x)
 	}
-	if err:=rows.Err();err!=nil {return nil,fmt.Errorf("read group requirements: %w",err)}
-	return result,nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read group requirements: %w", err)
+	}
+	return result, nil
 }
 
 // ListForStudent reads inherited group requirements and personal overrides,
@@ -172,27 +182,41 @@ func (r *Repository) ListForGroup(ctx context.Context, groupID int64) ([]Require
 //
 // RU: ListForStudent читает требования группы и личные требования студента.
 // Изменение профиля группы видно всем студентам без копирования записей.
-func (r *Repository) ListForStudent(ctx context.Context, groupID, studentID int64) ([]Requirement,error) {
-	if err := ctx.Err(); err!=nil { return nil,err }
-	if groupID<=0 || studentID<=0 {return nil,ErrInvalidScope}
-	var exists int
-	if err:=r.db.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM students WHERE id=? AND group_id=?)",studentID,groupID).Scan(&exists);err!=nil {
-		return nil,fmt.Errorf("check student requirement scope: %w",err)
+func (r *Repository) ListForStudent(ctx context.Context, groupID, studentID int64) ([]Requirement, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
-	if exists==0 {return nil,ErrInvalidScope}
-	rows,err:=r.db.QueryContext(ctx,`SELECT id,group_id,student_id,title,due_date FROM requirements
+	if groupID <= 0 || studentID <= 0 {
+		return nil, ErrInvalidScope
+	}
+	var exists int
+	if err := r.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM students WHERE id=? AND group_id=?)", studentID, groupID).Scan(&exists); err != nil {
+		return nil, fmt.Errorf("check student requirement scope: %w", err)
+	}
+	if exists == 0 {
+		return nil, ErrInvalidScope
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id,group_id,student_id,title,due_date FROM requirements
 		WHERE group_id=? AND (student_id IS NULL OR student_id=?)
-		ORDER BY title_key,id`,groupID,studentID)
-	if err!=nil {return nil,fmt.Errorf("list student requirements: %w",err)}
+		ORDER BY title_key,id`, groupID, studentID)
+	if err != nil {
+		return nil, fmt.Errorf("list student requirements: %w", err)
+	}
 	defer rows.Close()
-	result:=make([]Requirement,0)
+	result := make([]Requirement, 0)
 	for rows.Next() {
 		var x Requirement
 		var personal sql.NullInt64
-		if err:=rows.Scan(&x.ID,&x.GroupID,&personal,&x.Title,&x.DueDate);err!=nil {return nil,fmt.Errorf("scan student requirement: %w",err)}
-		if personal.Valid {x.StudentID=personal.Int64}
-		result=append(result,x)
+		if err := rows.Scan(&x.ID, &x.GroupID, &personal, &x.Title, &x.DueDate); err != nil {
+			return nil, fmt.Errorf("scan student requirement: %w", err)
+		}
+		if personal.Valid {
+			x.StudentID = personal.Int64
+		}
+		result = append(result, x)
 	}
-	if err:=rows.Err();err!=nil {return nil,fmt.Errorf("read student requirements: %w",err)}
-	return result,nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read student requirements: %w", err)
+	}
+	return result, nil
 }
