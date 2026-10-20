@@ -169,6 +169,20 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Backup commands run without launching the HTTP server or browser.
+	// RU: Команды копирования не запускают веб-сервер и браузер.
+	if len(os.Args) > 1 {
+		configDir, err := os.UserConfigDir()
+		if err == nil {
+			err = runBackupCommand(ctx, filepath.Join(configDir, "ThesisFlow"), os.Args[1:], os.Stdout)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := launch(ctx, os.Stdout, browser.Open); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
