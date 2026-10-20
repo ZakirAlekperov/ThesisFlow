@@ -185,4 +185,3 @@ func NewHandler(store GroupStore) (http.Handler, error) {
 		mux.ServeHTTP(w, r)
 	}), nil
 }
-
