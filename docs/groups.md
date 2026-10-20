@@ -2,7 +2,7 @@
 
 ## English
 
-This initial increment provides **group persistence only**. It does not yet add
+These increments provide **group creation and listing through the internal Go API**. It does not yet add
 an HTTP endpoint or a user-facing form.
 
 - At startup ThesisFlow creates the `student_groups` table if it does not exist.
@@ -12,6 +12,8 @@ an HTTP endpoint or a user-facing form.
 - Names differing only by Unicode case or surrounding whitespace are treated
   as duplicates (`ErrDuplicateName`). The original record is not overwritten.
 - Existing records survive restarts and repeated schema initialization.
+- `groups.NewRepository(db).List(ctx)` returns all groups with stable IDs, sorted by their internal normalized name key and then ID.
+- An empty database yields a non-nil empty list. If a query fails or is cancelled, it returns an error and no partial results.
 - The normalized `name_key` column is internal; the displayed name preserves
   the user's capitalization.
 
@@ -19,13 +21,13 @@ For the single-user 0.1 version, group names are unique within the local
 workspace. Supporting multiple academic years or organizations can later extend
 this uniqueness scope without exposing `name_key` in the UI.
 
-**Not implemented yet:** listing, renaming, archiving, student assignment,
+**Not implemented yet:** renaming, archiving, student assignment,
 Excel import, group folders, HTTP endpoints and database migration history.
 These belong to subsequent small TDD steps.
 
 ## Русский
 
-Этот микрошаг реализует **только сохранение учебных групп в SQLite**.
+Эти микрошаги реализуют **создание и получение списка групп через внутренний Go API**.
 HTTP-метода и формы создания группы в интерфейсе пока нет.
 
 - При запуске ThesisFlow создаёт таблицу `student_groups`, если её ещё нет.
@@ -35,6 +37,8 @@ HTTP-метода и формы создания группы в интерфе�
 - Названия, отличающиеся лишь регистром символов Unicode или пробелами по краям,
   считаются повторными (`ErrDuplicateName`). Исходная запись не меняется.
 - Группы сохраняются после перезапуска и повторной инициализации таблицы.
+- `groups.NewRepository(db).List(ctx)` возвращает все группы с постоянными ID в порядке внутреннего нормализованного названия, затем ID.
+- При отсутствии групп возвращается пустой срез (не `nil`). При ошибке или отмене запроса частичный список не возвращается.
 - Внутреннее поле `name_key` нужно только для проверки уникальности; на экране
   сохраняется написание пользователя.
 
@@ -42,6 +46,6 @@ HTTP-метода и формы создания группы в интерфе�
 рабочего пространства. В будущем при поддержке нескольких учебных годов
 или организаций область уникальности можно расширить.
 
-**Пока не реализовано:** получение списка, переименование и архивирование
+**Пока не реализовано:** переименование и архивирование
 групп, привязка студентов, импорт Excel, папки групп, HTTP API и история
 миграций схемы. Это отдельные небольшие этапы TDD.
