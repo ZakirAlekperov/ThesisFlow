@@ -2,7 +2,7 @@
 
 ## English
 
-These increments provide group creation and listing through Go and a **read-only browser view** of saved groups. A group-creation form is not yet available.
+These increments provide group creation and listing through Go and a **read-only browser view** of saved groups. A browser group-creation form is available using POST /groups.
 
 - At startup ThesisFlow creates the `student_groups` table if it does not exist.
 - `groups.NewRepository(db).Create(ctx, name)` returns a stable numeric group
@@ -22,13 +22,13 @@ this uniqueness scope without exposing `name_key` in the UI.
 
 The home page at `GET /` renders groups in repository order. For an empty workspace it displays an empty state; a database error results in HTTP 500. Group names are escaped by `html/template` so they cannot inject HTML.
 
-**Not implemented yet:** a browser form for creating groups, renaming, archiving,
+**Not implemented yet:** renaming, archiving,
 student assignment, Excel import, group folders and database migration history.
 These belong to subsequent small TDD steps.
 
 ## Русский
 
-Эти микрошаги реализуют создание и получение списка групп через Go и **отображение сохранённых групп в браузере**. Формы создания группы пока нет.
+Эти микрошаги реализуют создание и получение списка групп через Go и **отображение сохранённых групп в браузере**. Форма создания группы доступна через POST /groups.
 
 - При запуске ThesisFlow создаёт таблицу `student_groups`, если её ещё нет.
 - `groups.NewRepository(db).Create(ctx, name)` возвращает постоянный числовой
@@ -50,5 +50,44 @@ These belong to subsequent small TDD steps.
 выводится сообщение об отсутствии групп; ошибка чтения возвращает HTTP 500.
 Названия экранируются через `html/template`, поэтому не могут внедрять HTML.
 
-**Пока не реализовано:** форма создания групп в браузере, переименование,
+**Пока не реализовано:** переименование,
 архивирование, привязка студентов, импорт Excel, папки групп и миграции схемы. Это отдельные небольшие этапы TDD.
+
+## Browser form / Форма в браузере
+
+### English
+
+The home page displays a group-name field and a **Create group** button.
+Submitting the form sends `POST /groups` with a per-process random CSRF
+token. The form does not require JavaScript.
+
+- Success: HTTP 303 redirect to `/` (Post/Redirect/Get); the saved group then
+  appears in the list. Refreshing does not repeat the insertion.
+- Blank name: HTTP 400 with an actionable Russian error.
+- Existing name (case-insensitive): HTTP 409 with an actionable Russian error;
+  the user input is preserved.
+- Unrecognized/missing token: HTTP 403, without a database write.
+- Oversized form: HTTP 413; unsupported media type: HTTP 415.
+- Internal storage errors: generic HTTP 500, without filesystem/SQL details.
+
+The token is generated from the operating system's cryptographic randomness
+when the handler is created. Responses are not cached, and the page does not
+load third-party JavaScript. The server remains bound to `127.0.0.1`.
+
+### Русский
+
+На главной странице доступны поле названия и кнопка **«Создать группу»**.
+Форма отправляет `POST /groups` со случайным CSRF-токеном, действительным
+только во время текущего запуска приложения. JavaScript не требуется.
+
+- Успех: перенаправление HTTP 303 на `/` по схеме Post/Redirect/Get;
+  новая группа появляется в списке, а обновление страницы не повторяет POST.
+- Пустое название: HTTP 400 и понятное сообщение на русском языке.
+- Повтор названия без учёта регистра: HTTP 409 с сохранением ввода.
+- Отсутствующий или поддельный токен: HTTP 403 без записи в SQLite.
+- Слишком большая форма: HTTP 413; неверный формат: HTTP 415.
+- Ошибка SQLite: общее сообщение HTTP 500, без внутренних подробностей.
+
+Токен создаётся при инициализации HTTP-обработчика через криптографический
+генератор ОС. Кеширование страницы отключено, внешние скрипты не используются.
+Сервер по-прежнему принимает подключения только на `127.0.0.1`.
