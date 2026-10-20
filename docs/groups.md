@@ -2,8 +2,7 @@
 
 ## English
 
-These increments provide **group creation and listing through the internal Go API**. It does not yet add
-an HTTP endpoint or a user-facing form.
+These increments provide group creation and listing through Go and a **read-only browser view** of saved groups. A group-creation form is not yet available.
 
 - At startup ThesisFlow creates the `student_groups` table if it does not exist.
 - `groups.NewRepository(db).Create(ctx, name)` returns a stable numeric group
@@ -29,8 +28,7 @@ These belong to subsequent small TDD steps.
 
 ## Русский
 
-Эти микрошаги реализуют **создание и получение списка групп через внутренний Go API**.
-HTTP-метода и формы создания группы в интерфейсе пока нет.
+Эти микрошаги реализуют создание и получение списка групп через Go и **отображение сохранённых групп в браузере**. Формы создания группы пока нет.
 
 - При запуске ThesisFlow создаёт таблицу `student_groups`, если её ещё нет.
 - `groups.NewRepository(db).Create(ctx, name)` возвращает постоянный числовой
