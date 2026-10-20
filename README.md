@@ -4,9 +4,9 @@ A lightweight, local graduation-thesis document tracker for educators.
 
 Лёгкий локальный помощник преподавателя для учёта материалов выпускных квалификационных работ.
 
-> **Development status / Состояние разработки:** early prototype (0.1.01). The first HTTP page opens in the default browser. SQLite initialization and group persistence are available internally; group UI, student records, document storage and Excel import are not implemented yet.
+> **Development status / Состояние разработки:** early prototype (0.1.01). The first HTTP page opens in the default browser. SQLite initialization and group creation and listing are available internally; group UI, student records, document storage and Excel import are not implemented yet.
 >
-> Ранний прототип (0.1.01). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически, а группы уже можно сохранять через внутренний Go API; интерфейс групп, учёт студентов, хранение документов и импорт Excel ещё не реализованы.
+> Ранний прототип (0.1.01). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически, а группы уже можно создавать и получать списком через внутренний Go API; интерфейс групп, учёт студентов, хранение документов и импорт Excel ещё не реализованы.
 
 ## English
 
