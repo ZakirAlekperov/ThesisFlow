@@ -3,7 +3,7 @@
 ## English
 
 ThesisFlow stores student records in SQLite and now displays them on a read-only
-browser page for the selected academic group. The student creation form is separate.
+browser page for the selected academic group. Student creation is now available on that page.
 
 The `students` table holds:
 
@@ -39,13 +39,13 @@ the browser interface. A dedicated schema-migration system remains future work;
 this initial table is additive and compatible with existing empty/student-free
 workspaces.
 
-**Not implemented in this increment:** student creation forms, moving
+**Not implemented in this increment:** moving
 students, archiving, Excel import, thesis assignments, document statuses or files.
 
 ## Русский
 
 ThesisFlow сохраняет студентов в SQLite и теперь показывает их на странице
-выбранной группы в браузере. Форма добавления студентов пока не реализована.
+выбранной группы в браузере. Форма добавления студентов теперь доступна на странице группы.
 
 В таблице `students` хранятся:
 
@@ -78,8 +78,7 @@ ThesisFlow сохраняет студентов в SQLite и теперь по�
 Полноценная система миграций схемы пока не реализована: на этом этапе
 создаётся новая таблица без изменения существующих данных.
 
-**Пока не реализовано:** добавление студентов через браузер,
-перевод между группами, архивирование, импорт Excel, ВКР, статусы и документы.
+**Пока не реализовано:** перевод между группами, архивирование, импорт Excel, ВКР, статусы и документы.
 
 ## Group student list / Список студентов группы
 
@@ -106,7 +105,9 @@ educational IDs. An existing empty group shows a friendly empty state;
 missing/invalid groups return HTTP 404, and database failures return a generic
 HTTP 500. All names and IDs are escaped with `html/template`.
 
-**Next micro-step:** add a student through a browser form.
+**Student creation:** the group page includes a full-name field, educational ID and Create button. The form posts to `POST /groups/{id}/students`; on success, HTTP 303 redirects to the group page to avoid duplicate submissions on refresh. Missing input shows HTTP 400 with a field-specific Russian error, and a duplicate educational ID across any group shows HTTP 409. Invalid group routes return HTTP 404. The per-process CSRF token prevents unauthorized posts; only URL-encoded forms up to 4096 bytes are accepted. User input is escaped by `html/template` when validation fails. Internal SQLite errors return generic HTTP 500.
+
+**Next micro-step:** decide on student editing/archiving or import from Excel.
 
 ### Русский
 
@@ -131,4 +132,6 @@ HTTP 500. All names and IDs are escaped with `html/template`.
 сообщение, неизвестная группа возвращает HTTP 404, ошибки базы — общий
 HTTP 500. ФИО и идентификаторы экранируются через `html/template`.
 
-**Следующий микрошаг:** форма добавления студента через браузер.
+**Создание студента:** на странице группы доступны поля ФИО и учебного ID с кнопкой «Добавить студента». Форма отправляется на `POST /groups/{id}/students`. После успешного сохранения сервер возвращает HTTP 303 обратно к группе: обновление страницы не создаёт дублей. Пустые поля дают HTTP 400, повтор учебного ID в любой группе — HTTP 409, неверная группа — HTTP 404. POST защищён CSRF-токеном; размер формы ограничен 4096 байтами. Значения и ошибки безопасно выводятся через `html/template`. Внутренние ошибки SQLite не раскрываются.
+
+**Следующий микрошаг:** определить порядок редактирования/архивирования студентов и импорта Excel.
