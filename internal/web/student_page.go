@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 )
 
@@ -30,6 +31,7 @@ type StudentStore interface {
 type groupStudentsData struct {
 	Group         groups.Group
 	Students      []students.Student
+	Requirements  []requirements.Requirement
 	CSRFToken     string
 	FullName      string
 	EducationalID string
@@ -56,12 +58,12 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     .back:hover { text-decoration: underline; }
     h1 { font-size: 2rem; margin-bottom: 8px; overflow-wrap: anywhere; }
     .subtitle { color: #596578; margin-bottom: 36px; line-height: 1.6; }
-    .panel { background: white; border: 1px solid #e4e8f0; border-radius: 16px; padding: 24px; }
+    .panel { background: white; border: 1px solid #e4e8f0; border-radius: 16px; padding: 24px; margin-bottom: 24px; }
     h2 { font-size: 1.25rem; margin-top: 0; }
-    .student-form { display: grid; gap: 12px; margin-bottom: 24px; }
-    .student-form label { font-weight: 600; }
-    .student-form input[type=text] { width: 100%; padding: 11px 12px; border: 1px solid #bfc9d7; border-radius: 8px; font: inherit; }
-    .student-form button { justify-self: start; border: 0; border-radius: 8px; background: #214eaf; color: white; font: inherit; font-weight: 600; padding: 11px 18px; cursor: pointer; }
+    .student-form, .requirement-form { display: grid; gap: 12px; margin-bottom: 24px; }
+    .student-form label, .requirement-form label { font-weight: 600; }
+    .student-form input[type=text], .requirement-form input { width: 100%; padding: 11px 12px; border: 1px solid #bfc9d7; border-radius: 8px; font: inherit; }
+    .student-form button, .requirement-form button { justify-self: start; border: 0; border-radius: 8px; background: #214eaf; color: white; font: inherit; font-weight: 600; padding: 11px 18px; cursor: pointer; }
     .student-form :focus-visible { outline: 2px solid #214eaf; outline-offset: 2px; }
     .form-error { color: #a51d2d; margin: -12px 0 20px; }
     .import-form { margin-top: 32px; padding-top: 24px; border-top: 1px solid #e4e8f0; display: grid; gap: 12px; }
@@ -118,6 +120,29 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
         <button type="submit">Импортировать студентов</button>
       </form>
     </section>
+    <section class="panel" aria-labelledby="requirements-heading">
+      <h2 id="requirements-heading">Обязательные документы ВКР</h2>
+      <form class="requirement-form" action="/groups/{{.Group.ID}}/requirements" method="post">
+        <label for="requirement-title">Название документа</label>
+        <input id="requirement-title" type="text" name="title" placeholder="Глава 1" required>
+        <label for="requirement-deadline">Срок сдачи (необязательно)</label>
+        <input id="requirement-deadline" type="date" name="due_date">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <button type="submit">Добавить требование</button>
+      </form>
+      {{if .Requirements}}
+      <ul class="student-list">
+        {{range .Requirements}}
+        <li data-requirement-id="{{.ID}}">
+          <span class="student-name">{{.Title}}</span>
+          {{if .DueDate}}<span class="student-id">Срок: {{.DueDate}}</span>{{end}}
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <p class="empty">Требования к документам пока не заданы.</p>
+      {{end}}
+    </section>
   </main>
 </body>
 </html>
@@ -156,7 +181,7 @@ func parseGroupPathID(r *http.Request) (int64, error) {
 //
 // RU: renderGroupStudents показывает студентов и ошибку заполнения формы.
 // Несуществующие группы дают 404; ошибки SQLite дают общий HTTP 500.
-func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentStore, token, name, educationalID, message string, status int) {
+func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentStore, token, name, educationalID, message string, status int, requirementStores ...RequirementStore) {
 	groupID, err := parseGroupPathID(r)
 	if err != nil {
 		http.NotFound(w, r)
@@ -180,9 +205,17 @@ func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore Grou
 		}
 		return
 	}
+	var required []requirements.Requirement
+	if len(requirementStores) > 0 && requirementStores[0] != nil {
+		required, err = requirementStores[0].ListForGroup(r.Context(), groupID)
+		if err != nil {
+			http.Error(w, "Не удалось загрузить требования к документам.", http.StatusInternalServerError)
+			return
+		}
+	}
 	var rendered bytes.Buffer
 	if err := groupStudentsTemplate.Execute(&rendered, groupStudentsData{
-		Group: group, Students: items, CSRFToken: token,
+		Group: group, Students: items, Requirements: required, CSRFToken: token,
 		FullName: name, EducationalID: educationalID, Error: message,
 	}); err != nil {
 		http.Error(w, "Не удалось отобразить страницу группы.", http.StatusInternalServerError)
@@ -199,7 +232,7 @@ func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore Grou
 //
 // RU: createStudentFromForm проверяет форму до записи в SQLite, использует
 // общий CSRF-токен приложения и перенаправляет после успешного создания.
-func createStudentFromForm(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentStore, token string) {
+func createStudentFromForm(w http.ResponseWriter, r *http.Request, groupStore GroupStore, studentStore StudentStore, token string, requirementStores ...RequirementStore) {
 	groupID, err := parseGroupPathID(r)
 	if err != nil {
 		http.NotFound(w, r)
@@ -256,7 +289,7 @@ func createStudentFromForm(w http.ResponseWriter, r *http.Request, groupStore Gr
 			http.Error(w, "Не удалось добавить студента.", http.StatusInternalServerError)
 			return
 		}
-		renderGroupStudents(w, r, groupStore, studentStore, token, fullName, strings.TrimSpace(educationalID), message, status)
+		renderGroupStudents(w, r, groupStore, studentStore, token, fullName, strings.TrimSpace(educationalID), message, status, requirementStores...)
 		return
 	}
 	http.Redirect(w, r, "/groups/"+strconv.FormatInt(groupID, 10), http.StatusSeeOther)
