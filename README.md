@@ -4,9 +4,9 @@ A lightweight, local graduation-thesis document tracker for educators.
 
 Лёгкий локальный помощник преподавателя для учёта материалов выпускных квалификационных работ.
 
-> **Development status / Состояние разработки:** early prototype (0.1.02). The first HTTP page opens in the default browser. SQLite initialization and group creation is available through Go, and the homepage displays saved groups from SQLite. The homepage can create groups; student records, document storage and Excel import are not implemented yet.
+> **Development status / Состояние разработки:** early prototype (0.1.02). The first HTTP page opens in the default browser. SQLite initialization and group creation is available through Go, and the homepage displays saved groups from SQLite. The homepage can create groups; student records can now be created through the internal Go API (not yet in the browser). Document storage and Excel import are not implemented yet.
 >
-> Ранний прототип (0.1.02). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически, а группы можно создавать через Go API, а главная страница показывает группы из SQLite. Форма создания групп теперь работает; учёт студентов, хранение документов и импорт Excel ещё не реализованы.
+> Ранний прототип (0.1.02). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически, а группы можно создавать через Go API, а главная страница показывает группы из SQLite. Форма создания групп работает; записи студентов уже можно создавать через внутренний Go API (пока без формы в браузере). Хранение документов и импорт Excel ещё не реализованы.
 
 ## English
 
@@ -27,7 +27,7 @@ go test ./...
 go vet ./...
 ```
 
-See [docs/testing.md](docs/testing.md), [docs/groups.md](docs/groups.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+See [docs/testing.md](docs/testing.md), [docs/groups.md](docs/groups.md), [docs/students.md](docs/students.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Русский
 
@@ -48,7 +48,7 @@ go test ./...
 go vet ./...
 ```
 
-Правила разработки описаны в [docs/testing.md](docs/testing.md) и [CONTRIBUTING.md](CONTRIBUTING.md). Контракты групп — в [docs/groups.md](docs/groups.md).
+Правила разработки описаны в [docs/testing.md](docs/testing.md) и [CONTRIBUTING.md](CONTRIBUTING.md). Контракты групп — в [docs/groups.md](docs/groups.md), студентов — в [docs/students.md](docs/students.md).
 
 ## License / Лицензия
 

@@ -84,3 +84,37 @@ func TestStartInitializesGroupsSchema(t *testing.T) {
 		t.Errorf("groups table row count = %d, want 0", count)
 	}
 }
+
+// TestStartInitializesStudentsSchema verifies table creation before the HTTP
+// interface is opened. The students table must reference academic groups.
+// Scenario: start a fresh workspace and cancel from the browser opener.
+// Expected: the students table is present and initially empty.
+//
+// RU: Проверяет создание таблицы студентов до запуска HTTP-интерфейса.
+// Сценарий: новый файл SQLite и отмена из обработчика открытия браузера.
+// Ожидается: таблица студентов существует и не содержит записей.
+func TestStartInitializesStudentsSchema(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	dbPath := filepath.Join(t.TempDir(), "thesisflow.sqlite")
+	err := start(ctx, io.Discard, "0", dbPath, func(string) error {
+		cancel()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	db, err := sqlite.Open(context.Background(), dbPath)
+	if err != nil {
+		t.Fatalf("reopen database: %v", err)
+	}
+	defer db.Close()
+
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM students").Scan(&count); err != nil {
+		t.Fatalf("students table missing after startup: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("student count = %d, want 0", count)
+	}
+}
