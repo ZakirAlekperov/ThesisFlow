@@ -200,14 +200,14 @@ func (s *Store) Save(ctx context.Context, studentID, requirementID int64, origin
 	uploadedAt := s.Clock().UTC().Format(time.RFC3339Nano)
 	digest := sha256.Sum256(data)
 	version := Version{
-		StudentID:studentID, RequirementID:requirementID, OriginalName:originalName,
-		RelativePath:relative, Size:int64(len(data)), SHA256:hex.EncodeToString(digest[:]),
-		UploadedAt:uploadedAt,
+		StudentID: studentID, RequirementID: requirementID, OriginalName: originalName,
+		RelativePath: relative, Size: int64(len(data)), SHA256: hex.EncodeToString(digest[:]),
+		UploadedAt: uploadedAt,
 	}
 	result, err := tx.ExecContext(ctx, `INSERT INTO file_versions(
 		student_id,requirement_id,original_name,relative_path,file_size,sha256,uploaded_at
-	) VALUES(?,?,?,?,?,?,?)`,studentID,requirementID,version.OriginalName,
-		version.RelativePath,version.Size,version.SHA256,version.UploadedAt)
+	) VALUES(?,?,?,?,?,?,?)`, studentID, requirementID, version.OriginalName,
+		version.RelativePath, version.Size, version.SHA256, version.UploadedAt)
 	if err != nil {
 		return Version{}, fmt.Errorf("save file version metadata: %w", err)
 	}
@@ -221,11 +221,11 @@ func (s *Store) Save(ctx context.Context, studentID, requirementID int64, origin
 		VALUES (?,?,?,?)
 		ON CONFLICT(student_id,requirement_id) DO UPDATE SET
 		status=excluded.status,changed_at=excluded.changed_at`,
-		studentID,requirementID,string(materials.UnderReview),uploadedAt); err != nil {
+		studentID, requirementID, string(materials.UnderReview), uploadedAt); err != nil {
 		return Version{}, fmt.Errorf("mark material for review: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO material_events(student_id,requirement_id,status,occurred_at)
-		VALUES(?,?,?,?)`,studentID,requirementID,string(materials.UnderReview),uploadedAt); err != nil {
+		VALUES(?,?,?,?)`, studentID, requirementID, string(materials.UnderReview), uploadedAt); err != nil {
 		return Version{}, fmt.Errorf("record document upload event: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -237,39 +237,57 @@ func (s *Store) Save(ctx context.Context, studentID, requirementID int64, origin
 
 // List returns all immutable versions for one student's requirement.
 // RU: List возвращает все загруженные версии одного документа студента.
-func (s *Store) List(ctx context.Context, studentID, requirementID int64) ([]Version,error) {
+func (s *Store) List(ctx context.Context, studentID, requirementID int64) ([]Version, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,student_id,requirement_id,original_name,
 		relative_path,file_size,sha256,uploaded_at FROM file_versions
-		WHERE student_id=? AND requirement_id=? ORDER BY id`,studentID,requirementID)
-	if err!=nil {return nil,fmt.Errorf("list document versions: %w",err)}
+		WHERE student_id=? AND requirement_id=? ORDER BY id`, studentID, requirementID)
+	if err != nil {
+		return nil, fmt.Errorf("list document versions: %w", err)
+	}
 	defer rows.Close()
-	result:=make([]Version,0)
+	result := make([]Version, 0)
 	for rows.Next() {
 		var v Version
-		if err:=rows.Scan(&v.ID,&v.StudentID,&v.RequirementID,&v.OriginalName,&v.RelativePath,&v.Size,&v.SHA256,&v.UploadedAt);err!=nil {
-			return nil,fmt.Errorf("scan document version: %w",err)
+		if err := rows.Scan(&v.ID, &v.StudentID, &v.RequirementID, &v.OriginalName, &v.RelativePath, &v.Size, &v.SHA256, &v.UploadedAt); err != nil {
+			return nil, fmt.Errorf("scan document version: %w", err)
 		}
-		result=append(result,v)
+		result = append(result, v)
 	}
-	if err:=rows.Err();err!=nil{return nil,fmt.Errorf("read version list: %w",err)}
-	return result,nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read version list: %w", err)
+	}
+	return result, nil
 }
 
 // Read returns immutable version bytes, capped by MaxFileSize and resolved
 // only beneath the configured application storage root.
 // RU: Read читает файл версии только внутри служебного каталога приложения.
-func (s *Store) Read(ctx context.Context, versionID int64) ([]byte,error) {
-	if err:=ctx.Err();err!=nil {return nil,err}
+func (s *Store) Read(ctx context.Context, versionID int64) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var relative string
-	err:=s.DB.QueryRowContext(ctx,"SELECT relative_path FROM file_versions WHERE id=?",versionID).Scan(&relative)
-	if errors.Is(err,sql.ErrNoRows) {return nil,ErrVersionNotFound}
-	if err!=nil {return nil,fmt.Errorf("find file version: %w",err)}
-	if !filepath.IsLocal(relative) {return nil,ErrInvalidFile}
-	handle,err:=os.Open(filepath.Join(s.Root,relative))
-	if err!=nil {return nil,fmt.Errorf("open stored version: %w",err)}
+	err := s.DB.QueryRowContext(ctx, "SELECT relative_path FROM file_versions WHERE id=?", versionID).Scan(&relative)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find file version: %w", err)
+	}
+	if !filepath.IsLocal(relative) {
+		return nil, ErrInvalidFile
+	}
+	handle, err := os.Open(filepath.Join(s.Root, relative))
+	if err != nil {
+		return nil, fmt.Errorf("open stored version: %w", err)
+	}
 	defer handle.Close()
-	data,err:=io.ReadAll(io.LimitReader(handle,MaxFileSize+1))
-	if err!=nil{return nil,fmt.Errorf("read stored version: %w",err)}
-	if len(data)>MaxFileSize{return nil,ErrTooLarge}
-	return data,nil
+	data, err := io.ReadAll(io.LimitReader(handle, MaxFileSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read stored version: %w", err)
+	}
+	if len(data) > MaxFileSize {
+		return nil, ErrTooLarge
+	}
+	return data, nil
 }
