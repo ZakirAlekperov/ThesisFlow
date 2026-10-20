@@ -52,7 +52,7 @@ func (f *fakeStudentLister) Create(_ context.Context, groupID int64, educational
 	student := students.Student{
 		ID: int64(len(f.items) + 1), GroupID: groupID,
 		EducationalID: strings.TrimSpace(educationalID),
-		FullName: strings.TrimSpace(fullName),
+		FullName:      strings.TrimSpace(fullName),
 	}
 	f.items = append(f.items, student)
 	return student, nil
