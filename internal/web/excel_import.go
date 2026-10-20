@@ -101,7 +101,7 @@ func importStudentsFromWorkbook(w http.ResponseWriter, r *http.Request, groupsSt
 		case errors.Is(err, students.ErrGroupNotFound):
 			http.NotFound(w, r)
 		default:
-			http.Error(w, "Не удалось импортировать файл Excel.", http.StatusBadRequest)
+			http.Error(w, "Не удалось импортировать файл Excel.", http.StatusInternalServerError)
 		}
 		return
 	}
