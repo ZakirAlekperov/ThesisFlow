@@ -44,8 +44,13 @@ Current coverage:
 | `TestListReturnsGroupsInStableNameOrder` | Returns all group names and original IDs in repeatable normalized-name order. |
 | `TestListPersistsAcrossReopen` | Lists the original group and ID after closing and reopening SQLite. |
 | `TestListRespectsCanceledContext` | Preserves context cancellation and avoids partial results. |
+| `TestHomePageShowsEmptyGroupsState` | Shows a clear empty state when the group list is empty. |
+| `TestHomePageListsSavedGroups` | Renders saved group names and IDs in repository order. |
+| `TestHomePageEscapesGroupNames` | Escapes HTML-like group names so they cannot inject markup. |
+| `TestHomePageHandlesGroupQueryError` | Responds with generic HTTP 500 on data-access errors without leaking details. |
+| `TestStartServesGroupsFromSQLite` | Loads an existing SQLite group through the real HTTP startup path. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the HTTP group UI have **not** been implemented yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the browser form for creating groups have **not** been implemented yet. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -91,5 +96,10 @@ go vet ./...
 | `TestListReturnsGroupsInStableNameOrder` | Возвращает названия и исходные ID в стабильном порядке. |
 | `TestListPersistsAcrossReopen` | Возвращает сохранённую группу с прежним ID после перезапуска. |
 | `TestListRespectsCanceledContext` | Учитывает отмену контекста без частичного результата. |
+| `TestHomePageShowsEmptyGroupsState` | Показывает понятное сообщение при отсутствии групп. |
+| `TestHomePageListsSavedGroups` | Выводит названия и постоянные ID в порядке базы. |
+| `TestHomePageEscapesGroupNames` | Экранирует HTML-подобные названия от внедрения разметки. |
+| `TestHomePageHandlesGroupQueryError` | Возвращает HTTP 500 без раскрытия деталей ошибки БД. |
+| `TestStartServesGroupsFromSQLite` | Показывает группу из существующей SQLite через настоящий HTTP-сервер. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и интерфейс управления группами пока **не** реализованы. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и форма создания групп в браузере пока **не** реализованы. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.

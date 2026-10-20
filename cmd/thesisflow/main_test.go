@@ -14,6 +14,21 @@ import (
 	"time"
 )
 
+// testHTTPHandler is a minimal handler for HTTP server lifecycle tests.
+// The real SQLite-backed page is covered by TestStartServesGroupsFromSQLite.
+//
+// RU: testHTTPHandler — простой обработчик для проверки жизненного цикла сервера.
+// Настоящую страницу с SQLite проверяет TestStartServesGroupsFromSQLite.
+func testHTTPHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
 // signalWriter communicates the announced URL to the test without sharing
 // a mutable buffer across goroutines.
 // RU: signalWriter передаёт тесту объявленный адрес без одновременного
@@ -42,7 +57,7 @@ func TestRunStartsLoopbackHTTPAndOpensBrowser(t *testing.T) {
 	opened := make(chan string, 1)
 	finished := make(chan error, 1)
 	go func() {
-		finished <- run(ctx, writer, "0", func(address string) error {
+		finished <- run(ctx, writer, "0", testHTTPHandler(), func(address string) error {
 			opened <- address
 			return nil
 		})
@@ -114,7 +129,7 @@ func TestRunFailsOnOccupiedPort(t *testing.T) {
 	}
 	defer occupied.Close()
 	port := fmt.Sprint(occupied.Addr().(*net.TCPAddr).Port)
-	if err := run(context.Background(), io.Discard, port, func(string) error {
+	if err := run(context.Background(), io.Discard, port, testHTTPHandler(), func(string) error {
 		t.Error("browser called on occupied port")
 		return nil
 	}); err == nil {
@@ -143,7 +158,7 @@ func (failingWriter) Write([]byte) (int, error) {
 // Сценарий: run получает поток, возвращающий errWriteFailed.
 // Ожидается: errors.Is обнаруживает исходную ошибку записи.
 func TestRunReturnsOutputError(t *testing.T) {
-	if err := run(context.Background(), failingWriter{}, "0", func(string) error {
+	if err := run(context.Background(), failingWriter{}, "0", testHTTPHandler(), func(string) error {
 		t.Error("browser called after failed output")
 		return nil
 	}); !errors.Is(err, errWriteFailed) {
@@ -163,7 +178,7 @@ func TestRunKeepsServerAliveWhenBrowserFails(t *testing.T) {
 	defer cancel()
 	var output bytes.Buffer
 	browserError := errors.New("desktop unavailable")
-	err := run(ctx, &output, "0", func(string) error {
+	err := run(ctx, &output, "0", testHTTPHandler(), func(string) error {
 		cancel()
 		return browserError
 	})

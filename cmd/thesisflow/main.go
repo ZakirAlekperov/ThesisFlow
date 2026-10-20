@@ -27,14 +27,15 @@ const localPort = "0"
 
 // run starts the HTTP interface on the loopback address and waits until the
 // context is canceled. Port "0" selects a free ephemeral port for tests.
-// The application reports the listening URL, attempts to open a browser,
+// The injected handler serves local requests. The application reports the URL, attempts to open a browser,
 // and propagates startup errors. Browser launch failures are nonfatal.
 //
 // RU: run запускает HTTP-интерфейс только на loopback-адресе и работает до
 // отмены контекста. Порт "0" позволяет тестам выбрать свободный порт.
-// Функция выводит адрес, пытается открыть браузер и возвращает ошибки
+// Встроенный HTTP-обработчик обслуживает запросы; функция выводит адрес,
+// пытается открыть браузер и возвращает ошибки
 // запуска или вывода. Ошибка открытия браузера не прерывает работу сервера.
-func run(ctx context.Context, output io.Writer, port string, openBrowser func(string) error) error {
+func run(ctx context.Context, output io.Writer, port string, handler http.Handler, openBrowser func(string) error) error {
 	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", port))
 	if err != nil {
 		return fmt.Errorf("listen on localhost: %w", err)
@@ -47,7 +48,7 @@ func run(ctx context.Context, output io.Writer, port string, openBrowser func(st
 	}
 
 	server := &http.Server{
-		Handler:           web.NewHandler(),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -98,10 +99,13 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 
 	// Create the group schema before allowing the UI to accept requests.
 	// RU: Таблица групп создаётся до запуска пользовательского интерфейса.
-	if err := groups.NewRepository(db).Init(ctx); err != nil {
+	repo := groups.NewRepository(db)
+	if err := repo.Init(ctx); err != nil {
 		return fmt.Errorf("initialize academic groups: %w", err)
 	}
-	return run(ctx, output, port, openBrowser)
+	// The same SQLite repository serves homepage requests for this session.
+	// RU: Главная страница использует тот же SQLite-репозиторий.
+	return run(ctx, output, port, web.NewHandler(repo), openBrowser)
 }
 
 // launch chooses a per-user directory so an installation does not require

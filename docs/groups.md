@@ -2,8 +2,7 @@
 
 ## English
 
-These increments provide **group creation and listing through the internal Go API**. It does not yet add
-an HTTP endpoint or a user-facing form.
+These increments provide group creation and listing through Go and a **read-only browser view** of saved groups. A group-creation form is not yet available.
 
 - At startup ThesisFlow creates the `student_groups` table if it does not exist.
 - `groups.NewRepository(db).Create(ctx, name)` returns a stable numeric group
@@ -21,14 +20,15 @@ For the single-user 0.1 version, group names are unique within the local
 workspace. Supporting multiple academic years or organizations can later extend
 this uniqueness scope without exposing `name_key` in the UI.
 
-**Not implemented yet:** renaming, archiving, student assignment,
-Excel import, group folders, HTTP endpoints and database migration history.
+The home page at `GET /` renders groups in repository order. For an empty workspace it displays an empty state; a database error results in HTTP 500. Group names are escaped by `html/template` so they cannot inject HTML.
+
+**Not implemented yet:** a browser form for creating groups, renaming, archiving,
+student assignment, Excel import, group folders and database migration history.
 These belong to subsequent small TDD steps.
 
 ## Русский
 
-Эти микрошаги реализуют **создание и получение списка групп через внутренний Go API**.
-HTTP-метода и формы создания группы в интерфейсе пока нет.
+Эти микрошаги реализуют создание и получение списка групп через Go и **отображение сохранённых групп в браузере**. Формы создания группы пока нет.
 
 - При запуске ThesisFlow создаёт таблицу `student_groups`, если её ещё нет.
 - `groups.NewRepository(db).Create(ctx, name)` возвращает постоянный числовой
@@ -46,6 +46,9 @@ HTTP-метода и формы создания группы в интерфе�
 рабочего пространства. В будущем при поддержке нескольких учебных годов
 или организаций область уникальности можно расширить.
 
-**Пока не реализовано:** переименование и архивирование
-групп, привязка студентов, импорт Excel, папки групп, HTTP API и история
-миграций схемы. Это отдельные небольшие этапы TDD.
+Главная страница `GET /` отображает группы в порядке хранилища. Для новой базы
+выводится сообщение об отсутствии групп; ошибка чтения возвращает HTTP 500.
+Названия экранируются через `html/template`, поэтому не могут внедрять HTML.
+
+**Пока не реализовано:** форма создания групп в браузере, переименование,
+архивирование, привязка студентов, импорт Excel, папки групп и миграции схемы. Это отдельные небольшие этапы TDD.
