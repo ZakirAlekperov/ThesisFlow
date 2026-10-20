@@ -16,8 +16,8 @@ import (
 // individual documents through the existing SQLite repository.
 // RU: RequirementStore читает требования группы и создаёт обязательные файлы.
 type RequirementStore interface {
-	ListForGroup(context.Context, int64) ([]requirements.Requirement,error)
-	Create(context.Context, int64, int64, string, string) (requirements.Requirement,error)
+	ListForGroup(context.Context, int64) ([]requirements.Requirement, error)
+	Create(context.Context, int64, int64, string, string) (requirements.Requirement, error)
 }
 
 // createGroupRequirement handles group-wide document requirements.
