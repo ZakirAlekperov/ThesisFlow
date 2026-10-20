@@ -26,28 +26,44 @@ func TestBackupCLIExportsAndRestores(t *testing.T) {
 	root := t.TempDir()
 	workspace := filepath.Join(root, "work")
 	db, err := sqlite.Open(ctx, filepath.Join(workspace, "thesisflow.sqlite"))
-	if err != nil { t.Fatal(err) }
-	if _, err := db.Exec("CREATE TABLE demo (value TEXT)"); err != nil { t.Fatal(err) }
-	if _, err := db.Exec("INSERT INTO demo(value) VALUES ('saved')"); err != nil { t.Fatal(err) }
-	if err := db.Close(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("CREATE TABLE demo (value TEXT)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("INSERT INTO demo(value) VALUES ('saved')"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	archive := filepath.Join(root, "snapshot.zip")
 	var output bytes.Buffer
 	if err := runBackupCommand(ctx, workspace, []string{"backup", "export", archive}, &output); err != nil {
 		t.Fatalf("export: %v", err)
 	}
-	if !strings.Contains(output.String(), "создана") { t.Errorf("unexpected message: %q", output.String()) }
+	if !strings.Contains(output.String(), "создана") {
+		t.Errorf("unexpected message: %q", output.String())
+	}
 	target := filepath.Join(root, "recovered")
 	output.Reset()
 	if err := runBackupCommand(ctx, workspace, []string{"backup", "restore", archive, target}, &output); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	restored, err := sqlite.Open(ctx, filepath.Join(target, "thesisflow.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer restored.Close()
 	var value string
-	if err := restored.QueryRow("SELECT value FROM demo").Scan(&value); err != nil { t.Fatal(err) }
-	if value != "saved" { t.Errorf("record = %q", value) }
+	if err := restored.QueryRow("SELECT value FROM demo").Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	if value != "saved" {
+		t.Errorf("record = %q", value)
+	}
 }
 
 // TestBackupCLIRejectsMissingSource prevents silently archiving a newly
@@ -59,7 +75,9 @@ func TestBackupCLIRejectsMissingSource(t *testing.T) {
 	workspace := filepath.Join(root, "missing")
 	err := runBackupCommand(context.Background(), workspace,
 		[]string{"backup", "export", filepath.Join(root, "snapshot.zip")}, &bytes.Buffer{})
-	if err == nil { t.Fatal("exported missing source") }
+	if err == nil {
+		t.Fatal("exported missing source")
+	}
 	if _, statErr := os.Stat(filepath.Join(workspace, "thesisflow.sqlite")); !os.IsNotExist(statErr) {
 		t.Errorf("command created a new database: %v", statErr)
 	}
@@ -72,7 +90,9 @@ func TestBackupCLIRejectsMissingSource(t *testing.T) {
 func TestBackupCLIRefusesRestoreOverExistingWorkspace(t *testing.T) {
 	root := t.TempDir()
 	existing := filepath.Join(root, "existing")
-	if err := os.Mkdir(existing, 0700); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(existing, 0700); err != nil {
+		t.Fatal(err)
+	}
 	err := runBackupCommand(context.Background(), filepath.Join(root, "work"),
 		[]string{"backup", "restore", "anything.zip", existing}, &bytes.Buffer{})
 	if !errors.Is(err, backup.ErrDestinationExists) {
