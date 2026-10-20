@@ -14,12 +14,39 @@ import (
 // fakeGroupLister supplies predictable group data without opening a real database.
 // RU: fakeGroupLister возвращает заданные группы без подключения к настоящей БД.
 type fakeGroupLister struct {
-	items []groups.Group
-	err   error
+	items     []groups.Group
+	err       error
+	createErr error
+	created   int
+	lastName  string
 }
 
-func (f fakeGroupLister) List(context.Context) ([]groups.Group, error) {
+func (f *fakeGroupLister) List(context.Context) ([]groups.Group, error) {
 	return f.items, f.err
+}
+
+// Create tracks calls, returning an injected failure or an in-memory group.
+// RU: Create учитывает вызовы, возвращает заданную ошибку или тестовую группу.
+func (f *fakeGroupLister) Create(_ context.Context, name string) (groups.Group, error) {
+	f.created++
+	f.lastName = name
+	if f.createErr != nil {
+		return groups.Group{}, f.createErr
+	}
+	group := groups.Group{ID: int64(len(f.items) + 1), Name: strings.TrimSpace(name)}
+	f.items = append(f.items, group)
+	return group, nil
+}
+
+// newTestHandler creates the production handler and reports constructor errors.
+// RU: newTestHandler создаёт настоящий обработчик и сообщает об ошибке создания.
+func newTestHandler(t *testing.T, store *fakeGroupLister) http.Handler {
+	t.Helper()
+	handler, err := NewHandler(store)
+	if err != nil {
+		t.Fatalf("NewHandler(): %v", err)
+	}
+	return handler
 }
 
 // TestHomePageShowsEmptyGroupsState verifies useful feedback for a fresh workspace.
@@ -31,7 +58,7 @@ func (f fakeGroupLister) List(context.Context) ([]groups.Group, error) {
 // Ожидается: HTTP 200 и сообщение об отсутствии групп на русском языке.
 func TestHomePageShowsEmptyGroupsState(t *testing.T) {
 	response := httptest.NewRecorder()
-	NewHandler(fakeGroupLister{}).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	newTestHandler(t, &fakeGroupLister{}).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", response.Code)
@@ -51,7 +78,7 @@ func TestHomePageShowsEmptyGroupsState(t *testing.T) {
 // Ожидается: обе видны на странице в заданном порядке и с правильными ID.
 func TestHomePageListsSavedGroups(t *testing.T) {
 	response := httptest.NewRecorder()
-	NewHandler(fakeGroupLister{items: []groups.Group{
+	newTestHandler(t, &fakeGroupLister{items: []groups.Group{
 		{ID: 17, Name: "ИСП-401"},
 		{ID: 29, Name: "ПР-301"},
 	}}).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -82,7 +109,7 @@ func TestHomePageListsSavedGroups(t *testing.T) {
 // Ожидается: спецсимволы экранируются; HTML-код не выполняется.
 func TestHomePageEscapesGroupNames(t *testing.T) {
 	response := httptest.NewRecorder()
-	NewHandler(fakeGroupLister{items: []groups.Group{
+	newTestHandler(t, &fakeGroupLister{items: []groups.Group{
 		{ID: 1, Name: "<script>alert(1)</script>"},
 	}}).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
 
@@ -105,7 +132,7 @@ func TestHomePageEscapesGroupNames(t *testing.T) {
 // Ожидается: HTTP 500 и общее сообщение без подробностей ошибки.
 func TestHomePageHandlesGroupQueryError(t *testing.T) {
 	response := httptest.NewRecorder()
-	NewHandler(fakeGroupLister{err: errors.New("secret database path")}).ServeHTTP(
+	newTestHandler(t, &fakeGroupLister{err: errors.New("secret database path")}).ServeHTTP(
 		response, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	if response.Code != http.StatusInternalServerError {
