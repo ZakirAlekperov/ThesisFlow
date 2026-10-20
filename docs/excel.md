@@ -71,3 +71,39 @@ A browser-facing import form with column selection is still required.
 - После успешного импорта возвращается число добавленных студентов.
 
 Форма загрузки Excel и выбора колонок через браузер — отдельный этап.
+
+## Browser workflow / Загрузка через браузер
+
+### English
+
+Open a group page and use **Import from Excel** to upload an `.xlsx`
+workbook. Enter the exact first-row header labels for the full name and
+educational ID columns (defaults: `ФИО`, `Учебный ID`). Matching ignores
+case and leading/trailing whitespace. The server parses the file in memory,
+validates the chosen group and uses the atomic importer.
+
+On success, HTTP 303 redirects back to the group list of students. If any
+required value or student number is invalid or duplicated, all changes are
+rolled back. The upload is protected by the same random CSRF token as the
+student creation form, rejects files over 10 MiB and requires `.xlsx`.
+
+**Current limitation:** the mapping uses editable header-name fields rather
+than a two-step preview dropdown. Worksheet relationship indirection and
+advanced Excel styles remain future improvements. The file is not retained.
+
+### Русский
+
+Откройте страницу группы и в разделе **«Импорт из Excel»** выберите XLSX.
+Введите названия столбцов первой строки с ФИО и учебным номером (по
+умолчанию `ФИО` и `Учебный ID`). Регистр и пробелы по краям
+игнорируются. Сервер обрабатывает файл, проверяет группу и выполняет
+**атомарную транзакцию SQLite**.
+
+После успешного импорта выполняется перенаправление HTTP 303 в список.
+При любом повторном учебном ID или неполной строке весь импорт отменяется.
+Форма защищена CSRF, размер файла ограничен 10 МиБ, принимается `.xlsx`.
+Загруженный файл не сохраняется.
+
+**Текущее ограничение:** заголовки колонок вводятся вручную; предварительный
+просмотр с выпадающими списками ещё не реализован. Работа со сложными
+листами XLSX также требует дальнейшего развития парсера.
