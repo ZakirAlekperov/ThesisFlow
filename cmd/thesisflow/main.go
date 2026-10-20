@@ -18,6 +18,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
 
@@ -102,6 +103,11 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	repo := groups.NewRepository(db)
 	if err := repo.Init(ctx); err != nil {
 		return fmt.Errorf("initialize academic groups: %w", err)
+	}
+	// Students depend on group IDs, so initialize their table second.
+	// RU: Таблицу студентов создаём после таблицы учебных групп.
+	if err := students.NewRepository(db).Init(ctx); err != nil {
+		return fmt.Errorf("initialize students: %w", err)
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
