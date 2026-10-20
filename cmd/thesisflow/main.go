@@ -103,9 +103,13 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	if err := repo.Init(ctx); err != nil {
 		return fmt.Errorf("initialize academic groups: %w", err)
 	}
-	// The same SQLite repository serves homepage requests for this session.
-	// RU: Главная страница использует тот же SQLite-репозиторий.
-	return run(ctx, output, port, web.NewHandler(repo), openBrowser)
+	// The same SQLite repository serves group listing and creation requests.
+	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
+	handler, err := web.NewHandler(repo)
+	if err != nil {
+		return fmt.Errorf("initialize HTTP interface: %w", err)
+	}
+	return run(ctx, output, port, handler, openBrowser)
 }
 
 // launch chooses a per-user directory so an installation does not require
