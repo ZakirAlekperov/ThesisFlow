@@ -35,8 +35,13 @@ Current coverage:
 | `TestOpenRejectsInvalidPath` | Reports an invalid directory rather than silently switching paths. |
 | `TestOpenRespectsCancellation` | Does not create the DB if the startup context is already cancelled. |
 | `TestStartInitializesLocalDatabase` | Initializes SQLite before opening the HTTP interface. |
+| `TestCreateGroupStoresNormalizedNameAndID` | Creates a trimmed group with a persistent SQLite ID. |
+| `TestCreateGroupRejectsEmptyName` | Rejects blank group names and leaves the table unchanged. |
+| `TestCreateGroupRejectsDuplicateName` | Rejects case-insensitive duplicate names without overwriting. |
+| `TestCreateGroupKeepsIDAfterReopen` | Keeps group identity after reopening and reinitializing SQLite. |
+| `TestStartInitializesGroupsSchema` | Creates the groups table before exposing the local HTTP interface. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Domain tables, migrations and document storage have **not** been implemented yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the HTTP group UI have **not** been implemented yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -73,5 +78,10 @@ go vet ./...
 | `TestOpenRejectsInvalidPath` | Сообщает о недопустимом каталоге, не меняя путь молча. |
 | `TestOpenRespectsCancellation` | Не создаёт БД при заранее отменённом контексте. |
 | `TestStartInitializesLocalDatabase` | Создаёт SQLite перед открытием HTTP-интерфейса. |
+| `TestCreateGroupStoresNormalizedNameAndID` | Создаёт группу с очищенным названием и постоянным ID. |
+| `TestCreateGroupRejectsEmptyName` | Запрещает пустые названия без изменения таблицы. |
+| `TestCreateGroupRejectsDuplicateName` | Запрещает повторные названия независимо от регистра. |
+| `TestCreateGroupKeepsIDAfterReopen` | Сохраняет ID группы после повторного открытия и инициализации SQLite. |
+| `TestStartInitializesGroupsSchema` | Создаёт таблицу групп до запуска HTTP-интерфейса. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Предметные таблицы, миграции и файловое хранилище пока **не** реализованы. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и интерфейс управления группами пока **не** реализованы. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.

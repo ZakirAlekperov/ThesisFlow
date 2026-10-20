@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,4 +50,37 @@ func TestStartInitializesLocalDatabase(t *testing.T) {
 		t.Fatalf("cannot reopen database after shutdown: %v", err)
 	}
 	defer db.Close()
+}
+
+// TestStartInitializesGroupsSchema checks application startup integration.
+// Scenario: start the local application with a fresh database path.
+// Expected: after shutdown, the database contains an empty groups table.
+//
+// RU: Проверяет подключение таблицы групп при запуске ThesisFlow.
+// Сценарий: локальный запуск с новым файлом базы данных.
+// Ожидается: после остановки в базе есть пустая таблица учебных групп.
+func TestStartInitializesGroupsSchema(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	dbPath := filepath.Join(t.TempDir(), "thesisflow.sqlite")
+	err := start(ctx, io.Discard, "0", dbPath, func(string) error {
+		cancel()
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	db, err := sqlite.Open(context.Background(), dbPath)
+	if err != nil {
+		t.Fatalf("reopen database: %v", err)
+	}
+	defer db.Close()
+
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM student_groups").Scan(&count); err != nil {
+		t.Fatalf("groups table missing after startup: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("groups table row count = %d, want 0", count)
+	}
 }

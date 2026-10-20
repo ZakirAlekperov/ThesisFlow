@@ -4,9 +4,9 @@ A lightweight, local graduation-thesis document tracker for educators.
 
 Лёгкий локальный помощник преподавателя для учёта материалов выпускных квалификационных работ.
 
-> **Development status / Состояние разработки:** early prototype (0.1.01). The first HTTP page opens in the default browser. SQLite initialization is available; student records, document storage and Excel import are not implemented yet.
+> **Development status / Состояние разработки:** early prototype (0.1.01). The first HTTP page opens in the default browser. SQLite initialization and group persistence are available internally; group UI, student records, document storage and Excel import are not implemented yet.
 >
-> Ранний прототип (0.1.01). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически; учёт студентов, хранение документов и импорт Excel ещё не реализованы.
+> Ранний прототип (0.1.01). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически, а группы уже можно сохранять через внутренний Go API; интерфейс групп, учёт студентов, хранение документов и импорт Excel ещё не реализованы.
 
 ## English
 
@@ -27,7 +27,7 @@ go test ./...
 go vet ./...
 ```
 
-See [docs/testing.md](docs/testing.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+See [docs/testing.md](docs/testing.md), [docs/groups.md](docs/groups.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Русский
 
@@ -48,7 +48,7 @@ go test ./...
 go vet ./...
 ```
 
-Правила разработки описаны в [docs/testing.md](docs/testing.md) и [CONTRIBUTING.md](CONTRIBUTING.md).
+Правила разработки описаны в [docs/testing.md](docs/testing.md) и [CONTRIBUTING.md](CONTRIBUTING.md). Контракты групп — в [docs/groups.md](docs/groups.md).
 
 ## License / Лицензия
 
