@@ -41,5 +41,7 @@ func TestImportFileMissingHeaderKeepsDatabaseUntouched(t *testing.T) {
 	if err := db.QueryRow("SELECT count(*) FROM students").Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if n != 0 { t.Errorf("unexpected imported students: %d", n) }
+	if n != 0 {
+		t.Errorf("unexpected imported students: %d", n)
+	}
 }
