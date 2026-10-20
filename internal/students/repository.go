@@ -132,3 +132,54 @@ func (r *Repository) Create(ctx context.Context, groupID int64, educationalID, f
 		ID: id, GroupID: groupID, EducationalID: educationalID, FullName: fullName,
 	}, nil
 }
+
+// ListByGroup returns the students of one existing academic group in a
+// repeatable order: full name (SQLite binary text order), then permanent ID.
+// A valid but empty group returns a non-nil empty slice. Missing groups return
+// ErrGroupNotFound. Failed queries never expose partially loaded records.
+//
+// RU: ListByGroup возвращает студентов одной существующей учебной группы.
+// Порядок стабилен: ФИО (бинарная сортировка SQLite), затем постоянный ID.
+// Для пустой существующей группы возвращается пустой (не nil) срез.
+// Отсутствующая группа даёт ErrGroupNotFound; при ошибке частичных данных нет.
+func (r *Repository) ListByGroup(ctx context.Context, groupID int64) ([]Student, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if groupID <= 0 {
+		return nil, ErrGroupNotFound
+	}
+
+	var exists int
+	if err := r.db.QueryRowContext(ctx,
+		"SELECT EXISTS(SELECT 1 FROM student_groups WHERE id = ?)", groupID,
+	).Scan(&exists); err != nil {
+		return nil, fmt.Errorf("check students group: %w", err)
+	}
+	if exists == 0 {
+		return nil, ErrGroupNotFound
+	}
+
+	const query = `SELECT id, group_id, educational_id, full_name
+		FROM students
+		WHERE group_id = ?
+		ORDER BY full_name COLLATE BINARY, id`
+	rows, err := r.db.QueryContext(ctx, query, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("list group students: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]Student, 0)
+	for rows.Next() {
+		var student Student
+		if err := rows.Scan(&student.ID, &student.GroupID, &student.EducationalID, &student.FullName); err != nil {
+			return nil, fmt.Errorf("scan group student: %w", err)
+		}
+		result = append(result, student)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate group students: %w", err)
+	}
+	return result, nil
+}
