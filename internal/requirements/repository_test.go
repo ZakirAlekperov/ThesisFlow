@@ -107,8 +107,8 @@ func TestRequirementsRejectInvalidInputs(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		group, student int64
-		title, due string
-		want error
+		title, due     string
+		want           error
 	}{
 		{groupID, 0, "  ", "", ErrInvalidTitle},
 		{groupID, 0, "Глава 1", "2026-99-99", ErrInvalidDate},
