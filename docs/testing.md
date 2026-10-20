@@ -40,6 +40,10 @@ Current coverage:
 | `TestCreateGroupRejectsDuplicateName` | Rejects case-insensitive duplicate names without overwriting. |
 | `TestCreateGroupKeepsIDAfterReopen` | Keeps group identity after reopening and reinitializing SQLite. |
 | `TestStartInitializesGroupsSchema` | Creates the groups table before exposing the local HTTP interface. |
+| `TestListReturnsEmptySlice` | Returns a non-nil empty group list for a fresh workspace. |
+| `TestListReturnsGroupsInStableNameOrder` | Returns all group names and original IDs in repeatable normalized-name order. |
+| `TestListPersistsAcrossReopen` | Lists the original group and ID after closing and reopening SQLite. |
+| `TestListRespectsCanceledContext` | Preserves context cancellation and avoids partial results. |
 
 The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the HTTP group UI have **not** been implemented yet. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
@@ -83,5 +87,9 @@ go vet ./...
 | `TestCreateGroupRejectsDuplicateName` | Запрещает повторные названия независимо от регистра. |
 | `TestCreateGroupKeepsIDAfterReopen` | Сохраняет ID группы после повторного открытия и инициализации SQLite. |
 | `TestStartInitializesGroupsSchema` | Создаёт таблицу групп до запуска HTTP-интерфейса. |
+| `TestListReturnsEmptySlice` | Возвращает непустое значение среза без элементов для новой базы. |
+| `TestListReturnsGroupsInStableNameOrder` | Возвращает названия и исходные ID в стабильном порядке. |
+| `TestListPersistsAcrossReopen` | Возвращает сохранённую группу с прежним ID после перезапуска. |
+| `TestListRespectsCanceledContext` | Учитывает отмену контекста без частичного результата. |
 
 HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и интерфейс управления группами пока **не** реализованы. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
