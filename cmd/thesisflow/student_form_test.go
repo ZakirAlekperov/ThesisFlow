@@ -72,9 +72,9 @@ func TestStartCreatesStudentFromGroupPage(t *testing.T) {
 			return nil
 		}
 		response, err = client.PostForm(groupURL+"/students", url.Values{
-			"full_name": {"Иванов Иван"},
+			"full_name":      {"Иванов Иван"},
 			"educational_id": {"ЗК-0017"},
-			"csrf_token": {token[1]},
+			"csrf_token":     {token[1]},
 		})
 		if err != nil {
 			requestErr = err
