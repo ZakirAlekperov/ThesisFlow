@@ -35,15 +35,15 @@ type sheetRow struct {
 }
 
 type sheetCell struct {
-	Ref    string `xml:"r,attr"`
-	Type   string `xml:"t,attr"`
-	Value  string `xml:"v"`
+	Ref    string       `xml:"r,attr"`
+	Type   string       `xml:"t,attr"`
+	Value  string       `xml:"v"`
 	Inline inlineString `xml:"is"`
 }
 
 type inlineString struct {
 	Text string `xml:"t"`
-	Runs []run `xml:"r"`
+	Runs []run  `xml:"r"`
 }
 
 type run struct {
