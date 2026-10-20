@@ -24,30 +24,54 @@ func TestExportRestoreRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	dbPath := filepath.Join(root, "source", "thesisflow.sqlite")
 	db, err := sqlite.Open(ctx, dbPath)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
-	if _, err := db.Exec("CREATE TABLE sample (value TEXT NOT NULL)"); err != nil { t.Fatal(err) }
-	if _, err := db.Exec("INSERT INTO sample(value) VALUES (?)", "Глава 1"); err != nil { t.Fatal(err) }
+	if _, err := db.Exec("CREATE TABLE sample (value TEXT NOT NULL)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("INSERT INTO sample(value) VALUES (?)", "Глава 1"); err != nil {
+		t.Fatal(err)
+	}
 
 	storage := filepath.Join(root, "source", "storage")
-	if err := os.MkdirAll(filepath.Join(storage, "accepted"), 0700); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(filepath.Join(storage, "accepted"), 0700); err != nil {
+		t.Fatal(err)
+	}
 	original := []byte("test thesis document\n")
-	if err := os.WriteFile(filepath.Join(storage, "accepted", "Глава 1.docx"), original, 0600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(storage, "accepted", "Глава 1.docx"), original, 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	archive := filepath.Join(root, "snapshot.zip")
-	if err := Export(ctx, db, storage, archive); err != nil { t.Fatalf("Export: %v", err) }
+	if err := Export(ctx, db, storage, archive); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
 	dest := filepath.Join(root, "restored")
-	if err := Restore(archive, dest); err != nil { t.Fatalf("Restore: %v", err) }
+	if err := Restore(archive, dest); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
 
 	restoredDB, err := sqlite.Open(ctx, filepath.Join(dest, "thesisflow.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer restoredDB.Close()
 	var value string
-	if err := restoredDB.QueryRow("SELECT value FROM sample").Scan(&value); err != nil { t.Fatal(err) }
-	if value != "Глава 1" { t.Errorf("restored row = %q", value) }
+	if err := restoredDB.QueryRow("SELECT value FROM sample").Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	if value != "Глава 1" {
+		t.Errorf("restored row = %q", value)
+	}
 	got, err := os.ReadFile(filepath.Join(dest, "storage", "accepted", "Глава 1.docx"))
-	if err != nil { t.Fatal(err) }
-	if string(got) != string(original) { t.Errorf("restored content = %q", got) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Errorf("restored content = %q", got)
+	}
 }
 
 // TestExportRejectsExistingArchive checks that backups never silently overwrite.
@@ -60,15 +84,21 @@ func TestExportRestoreRoundTrip(t *testing.T) {
 func TestExportRejectsExistingArchive(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "snapshot.zip")
-	if err := os.WriteFile(path, []byte("valuable"), 0600); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(path, []byte("valuable"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	db, err := sqlite.Open(context.Background(), filepath.Join(root, "thesisflow.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 	if err := Export(context.Background(), db, filepath.Join(root, "storage"), path); !errors.Is(err, ErrDestinationExists) {
 		t.Errorf("Export error = %v, want ErrDestinationExists", err)
 	}
 	value, _ := os.ReadFile(path)
-	if string(value) != "valuable" { t.Errorf("existing archive overwritten: %q", value) }
+	if string(value) != "valuable" {
+		t.Errorf("existing archive overwritten: %q", value)
+	}
 }
 
 // TestRestoreRejectsExistingWorkspace protects live data on restoration.
@@ -81,13 +111,19 @@ func TestExportRejectsExistingArchive(t *testing.T) {
 func TestRestoreRejectsExistingWorkspace(t *testing.T) {
 	root := t.TempDir()
 	dest := filepath.Join(root, "existing")
-	if err := os.Mkdir(dest, 0700); err != nil { t.Fatal(err) }
-	if err := os.WriteFile(filepath.Join(dest, "sentinel"), []byte("keep"), 0600); err != nil { t.Fatal(err) }
+	if err := os.Mkdir(dest, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "sentinel"), []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	if err := Restore(filepath.Join(root, "missing.zip"), dest); !errors.Is(err, ErrDestinationExists) {
 		t.Errorf("Restore error = %v, want ErrDestinationExists", err)
 	}
 	data, _ := os.ReadFile(filepath.Join(dest, "sentinel"))
-	if string(data) != "keep" { t.Errorf("existing workspace changed: %q", data) }
+	if string(data) != "keep" {
+		t.Errorf("existing workspace changed: %q", data)
+	}
 }
 
 // TestRestoreRejectsTraversalPaths prevents a crafted archive from writing
@@ -102,13 +138,23 @@ func TestRestoreRejectsTraversalPaths(t *testing.T) {
 	root := t.TempDir()
 	archive := filepath.Join(root, "attack.zip")
 	file, err := os.Create(archive)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	writer := zip.NewWriter(file)
 	entry, err := writer.Create("storage/../../escaped.txt")
-	if err != nil { t.Fatal(err) }
-	if _, err := entry.Write([]byte("bad")); err != nil { t.Fatal(err) }
-	if err := writer.Close(); err != nil { t.Fatal(err) }
-	if err := file.Close(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte("bad")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
 	dest := filepath.Join(root, "recovery")
 	if err := Restore(archive, dest); !errors.Is(err, ErrUnsafeArchive) {
 		t.Errorf("Restore error = %v, want ErrUnsafeArchive", err)
@@ -130,15 +176,28 @@ func TestRestoreRejectsCorruptedManifest(t *testing.T) {
 	root := t.TempDir()
 	archive := filepath.Join(root, "bad.zip")
 	f, err := os.Create(archive)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	w := zip.NewWriter(f)
 	x, err := w.Create("thesisflow.sqlite")
-	if err != nil { t.Fatal(err) }
-	if _, err := x.Write([]byte("not valid SQLite")); err != nil { t.Fatal(err) }
-	if err := w.Close(); err != nil { t.Fatal(err) }
-	if err := f.Close(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := x.Write([]byte("not valid SQLite")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
 	target := filepath.Join(root, "recover")
-	if err := Restore(archive, target); err == nil { t.Fatal("Restore accepted archive without manifest") }
-	if _, err := os.Stat(target); !os.IsNotExist(err) { t.Errorf("partly restored target: %v", err) }
+	if err := Restore(archive, target); err == nil {
+		t.Fatal("Restore accepted archive without manifest")
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Errorf("partly restored target: %v", err)
+	}
 }
-
