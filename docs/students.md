@@ -15,7 +15,7 @@ The `students` table holds:
 | `educational_id_key` | Internal normalized key for global uniqueness |
 | `full_name` | Student's full display name |
 
-The internal Go API is `students.NewRepository(db).Create(ctx, groupID, educationalID, fullName)`.
+The internal Go API supports `students.NewRepository(db).Create(ctx, groupID, educationalID, fullName)` and `students.NewRepository(db).ListByGroup(ctx, groupID)`.
 
 ### Invariants
 
@@ -39,7 +39,7 @@ the browser interface. A dedicated schema-migration system remains future work;
 this initial table is additive and compatible with existing empty/student-free
 workspaces.
 
-**Not implemented in this increment:** browser forms and listings, moving
+**Not implemented in this increment:** browser forms and student pages, moving
 students, archiving, Excel import, thesis assignments, document statuses or files.
 
 ## Русский
@@ -57,7 +57,7 @@ students, archiving, Excel import, thesis assignments, document statuses or file
 | `educational_id_key` | Внутренний нормализованный ключ для проверки уникальности |
 | `full_name` | Полное ФИО студента |
 
-Внутренний Go API: `students.NewRepository(db).Create(ctx, groupID, educationalID, fullName)`.
+Внутренний Go API: `students.NewRepository(db).Create(ctx, groupID, educationalID, fullName)` и `students.NewRepository(db).ListByGroup(ctx, groupID)`.
 
 ### Правила
 
@@ -80,3 +80,45 @@ students, archiving, Excel import, thesis assignments, document statuses or file
 
 **Пока не реализовано:** добавление и просмотр студентов через браузер,
 перевод между группами, архивирование, импорт Excel, ВКР, статусы и документы.
+
+## Group student list / Список студентов группы
+
+### English
+
+`ListByGroup(ctx, groupID)` reads the students of exactly one existing group
+from SQLite. Its result contains the **permanent student ID**, group ID,
+educational ID and full display name; no extra schema or tables are added.
+
+- An existing group with no students returns a non-nil empty slice.
+- A missing, zero or negative group ID returns `ErrGroupNotFound`; this is
+  intentionally distinct from an existing empty group.
+- Results are ordered by `full_name COLLATE BINARY, id` in SQLite.
+  This is deterministic and preserves student identity even for identical
+  names; it is **not** locale-sensitive Russian dictionary sorting.
+- Database errors and cancelled contexts propagate to callers. No partial
+  results are returned.
+- The list works after closing/reopening the application database.
+- Only the selected group is returned: students of other groups are excluded.
+
+**Next micro-step:** show the selected group's students in the local browser.
+Adding students from a browser form is separate from listing them.
+
+### Русский
+
+`ListByGroup(ctx, groupID)` читает из SQLite студентов **одной существующей
+группы**. Каждая запись содержит постоянный ID студента, ID группы,
+учебный идентификатор и ФИО. Структура базы не меняется.
+
+- Если группа есть, но студентов нет, возвращается пустой (не nil) срез.
+- Для отсутствующей, нулевой или отрицательной группы возвращается
+  `ErrGroupNotFound`, чтобы не путать её с пустой существующей группой.
+- Порядок в SQLite: `full_name COLLATE BINARY, id`. Он воспроизводим и
+  различает однофамильцев по ID, но **не является русской словарной
+  сортировкой** с учётом языковых правил.
+- Ошибки SQLite и отмена контекста передаются вызывающей стороне без
+  частичного результата.
+- После повторного открытия базы список и постоянные ID сохраняются.
+- Студенты других групп не попадают в список выбранной группы.
+
+**Следующий микрошаг:** показать студентов выбранной группы в браузере.
+Форма добавления студентов будет отдельным небольшим этапом.
