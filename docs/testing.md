@@ -56,8 +56,16 @@ Current coverage:
 | `TestGroupFormRejectsOversizeBody` | Rejects oversized input without database writes. |
 | `TestGroupFormHidesStorageErrors` | Hides internal database failure details from browser. |
 | `TestStartCreatesGroupThroughBrowser` | Submits a real browser form and persists the group after shutdown. |
+| `TestCreateStudentStoresNormalizedFields` | Saves the student’s name, educational ID and exactly one group with a permanent ID. |
+| `TestCreateStudentRejectsMissingFields` | Rejects blank names/IDs and nonpositive group IDs without writing records. |
+| `TestCreateStudentRequiresExistingGroup` | Rejects references to nonexistent academic groups. |
+| `TestCreateStudentRejectsDuplicateIDAcrossGroups` | Enforces globally unique educational IDs independent of group and case. |
+| `TestCreateStudentSurvivesReopen` | Preserves all student fields and IDs across database restart. |
+| `TestStudentsTableEnforcesForeignKey` | Rejects orphan students even when inserted by direct SQL. |
+| `TestCreateStudentRespectsCancellation` | Propagates context cancellation and avoids writes. |
+| `TestStartInitializesStudentsSchema` | Initializes the students table before HTTP startup. |
 
-The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Only the minimal group table is initialized; student tables, schema migrations, document storage and the student editing, archiving and document storage have **not** been implemented yet. Browser group creation is covered by CSRF and HTTP integration tests. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
+The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Group and student tables are initialized. Full schema migrations, student pages, editing, archiving, Excel import and document storage have **not** been implemented yet. Student tests use temporary SQLite files and leave the user's database unchanged. Browser group creation is covered by CSRF and HTTP integration tests. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
 
 ## Русский
 
@@ -115,5 +123,13 @@ go vet ./...
 | `TestGroupFormRejectsOversizeBody` | Отклоняет слишком большие формы без изменения SQLite. |
 | `TestGroupFormHidesStorageErrors` | Скрывает внутренние подробности ошибки БД. |
 | `TestStartCreatesGroupThroughBrowser` | Отправляет настоящую форму и проверяет сохранность группы. |
+| `TestCreateStudentStoresNormalizedFields` | Сохраняет ФИО, учебный ID и одну группу с постоянным ID. |
+| `TestCreateStudentRejectsMissingFields` | Запрещает пустые поля и неположительные ID групп без записи данных. |
+| `TestCreateStudentRequiresExistingGroup` | Запрещает ссылку на несуществующую учебную группу. |
+| `TestCreateStudentRejectsDuplicateIDAcrossGroups` | Обеспечивает глобальную уникальность учебного ID между группами. |
+| `TestCreateStudentSurvivesReopen` | Сохраняет все поля и постоянные ID после перезапуска SQLite. |
+| `TestStudentsTableEnforcesForeignKey` | Запрещает студентов без группы даже при прямом SQL-запросе. |
+| `TestCreateStudentRespectsCancellation` | Учитывает отмену контекста без записи данных. |
+| `TestStartInitializesStudentsSchema` | Создаёт таблицу студентов до запуска HTTP-сервера. |
 
-HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Создаётся только минимальная таблица групп; таблицы студентов, миграции схемы, файловое хранилище и изменение студентов, архивирование и файловое хранилище пока **не** реализованы. Создание групп в браузере проверяется с учётом CSRF и HTTP-интеграции. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
+HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Инициализируются таблицы групп и студентов. Полноценные миграции схемы, страницы студентов, редактирование, архивирование, импорт Excel и файловое хранилище пока **не** реализованы. Тесты студентов используют временную SQLite и не затрагивают базу пользователя. Создание групп в браузере проверяется с учётом CSRF и HTTP-интеграции. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.
