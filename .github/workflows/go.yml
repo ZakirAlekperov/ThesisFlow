@@ -25,11 +25,6 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - name: Show formatting differences (temporary)
-        run: |
-          gofmt -d cmd/thesisflow/student_form_test.go
-          gofmt -d internal/web/student_page_test.go
-
       - name: Check Go formatting
         shell: bash
         run: |
