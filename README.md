@@ -64,3 +64,18 @@ RU: На странице учебной группы нажмите **«Печ�
 Откроется отчёт с числом студентов, требуемых, принятых, просроченных
 документов и процентом готовности. Для печати или PDF используйте печать
 браузера. Отчёт не изменяет данные SQLite.
+
+## Portable builds / Переносимые сборки
+
+EN: GitHub Actions **Portable builds** creates downloadable binaries for
+macOS ARM64/AMD64, Windows AMD64 and Linux AMD64. No Go installation is
+needed to run a downloaded binary. It contains the local browser app and
+backup commands. Build artifacts are attached to the workflow run.
+
+RU: GitHub Actions **Portable builds** создаёт архивы приложения для
+macOS ARM64/AMD64, Windows AMD64 и Linux AMD64. Для запуска готового файла
+устанавливать Go не требуется. В архивах есть приложение и команды
+резервного копирования. Сборки доступны как артефакты запуска Actions.
+
+Backup instructions / Инструкция по резервному копированию:
+[docs/backup.md](docs/backup.md).
