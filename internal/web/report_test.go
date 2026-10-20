@@ -21,7 +21,9 @@ type fakeReadiness struct {
 }
 
 func (f fakeReadiness) Group(_ context.Context, groupID int64, _ time.Time) (readiness.Summary, error) {
-	if f.err != nil { return readiness.Summary{}, f.err }
+	if f.err != nil {
+		return readiness.Summary{}, f.err
+	}
 	result := f.summary
 	result.GroupID = groupID
 	return result, nil
@@ -39,10 +41,14 @@ func TestPrintableReportShowsMetrics(t *testing.T) {
 	handler, err := NewHandlerWithServices(groupStore, &fakeStudentLister{}, Dependencies{
 		Report: fakeReadiness{summary: readiness.Summary{StudentCount: 2, Required: 4, Accepted: 1, Overdue: 2, Percent: 25}},
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/groups/17/report", nil))
-	if response.Code != http.StatusOK { t.Fatalf("status = %d", response.Code) }
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
 	for _, want := range []string{"ИСП-401", "25%", "2", "4", "@media print"} {
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("report missing %q: %s", want, response.Body.String())
@@ -58,7 +64,9 @@ func TestPrintableReportRejectsUnknownGroup(t *testing.T) {
 	handler, err := NewHandlerWithServices(&fakeGroupLister{}, &fakeStudentLister{}, Dependencies{
 		Report: fakeReadiness{},
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/groups/999/report", nil))
 	if response.Code != http.StatusNotFound {
@@ -75,7 +83,9 @@ func TestPrintableReportHidesStorageErrors(t *testing.T) {
 		&fakeGroupLister{items: []groups.Group{{ID: 17, Name: "ИСП-401"}}},
 		&fakeStudentLister{}, Dependencies{Report: fakeReadiness{err: errors.New("secret database path")}},
 	)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/groups/17/report", nil))
 	if response.Code != http.StatusInternalServerError || strings.Contains(response.Body.String(), "secret") {
