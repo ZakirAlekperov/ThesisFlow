@@ -69,6 +69,14 @@ Current coverage:
 | `TestListByGroupSurvivesReopen` | Preserves group-scoped records and student IDs across SQLite restart. |
 | `TestListByGroupRespectsCancellation` | Returns context cancellation without partial data. |
 | `TestListByGroupPropagatesDatabaseErrors` | Reports SQLite errors instead of a misleading empty list. |
+| `TestHomePageLinksToGroupStudents` | Links each group to a read-only student page using its permanent ID. |
+| `TestGroupPageShowsStudentsAndStableIDs` | Displays only the selected group's names, educational IDs and persistent record IDs. |
+| `TestGroupPageShowsEmptyState` | Shows an empty state for an existing group without students. |
+| `TestGroupPageRejectsUnknownAndInvalidIDs` | Returns 404 for invalid or missing groups without reading student records. |
+| `TestGroupPageEscapesNamesAndIDs` | Escapes untrusted group/student fields to prevent HTML injection. |
+| `TestGroupPageHidesDatabaseErrors` | Uses generic HTTP 500 messages rather than revealing storage failures. |
+| `TestGroupPageRejectsWriteMethods` | Keeps the new student page read-only with HTTP 405. |
+| `TestStartServesPersistedStudentsByGroup` | Serves existing group students through the real SQLite-backed HTTP server. |
 | `TestStartInitializesStudentsSchema` | Initializes the students table before HTTP startup. |
 
 The web tests use `httptest` and verify the handler without opening a listening socket. Browser-launch integration is tested with an injected opener (no real browser is launched during tests). The new SQLite tests use a temporary directory and do not modify the user's database. Group and student tables are initialized. Full schema migrations, student pages, editing, archiving, Excel import and document storage have **not** been implemented yet. Student tests use temporary SQLite files and leave the user's database unchanged. Browser group creation is covered by CSRF and HTTP integration tests. The home page now reads groups from SQLite using an injected repository. Server integration tests use an ephemeral loopback port to avoid conflicts.
@@ -142,6 +150,14 @@ go vet ./...
 | `TestListByGroupSurvivesReopen` | Сохраняет студенческие ID и список группы после перезапуска SQLite. |
 | `TestListByGroupRespectsCancellation` | Возвращает отмену контекста без частичных результатов. |
 | `TestListByGroupPropagatesDatabaseErrors` | Возвращает ошибки SQLite вместо вводящего в заблуждение пустого списка. |
+| `TestHomePageLinksToGroupStudents` | Открывает страницу студентов по постоянному ID группы. |
+| `TestGroupPageShowsStudentsAndStableIDs` | Показывает студентов выбранной группы с ФИО и обоими идентификаторами. |
+| `TestGroupPageShowsEmptyState` | Показывает сообщение для существующей группы без студентов. |
+| `TestGroupPageRejectsUnknownAndInvalidIDs` | Возвращает HTTP 404 для неизвестных ID без запросов студентов. |
+| `TestGroupPageEscapesNamesAndIDs` | Экранирует поля групп и студентов, защищая от HTML-инъекций. |
+| `TestGroupPageHidesDatabaseErrors` | Возвращает общий HTTP 500, не раскрывая подробности SQLite. |
+| `TestGroupPageRejectsWriteMethods` | Не разрешает запись на странице студентов (HTTP 405). |
+| `TestStartServesPersistedStudentsByGroup` | Показывает сохранённых студентов через настоящий HTTP-сервер и SQLite. |
 | `TestStartInitializesStudentsSchema` | Создаёт таблицу студентов до запуска HTTP-сервера. |
 
 HTTP-тесты используют `httptest` и проверяют обработчик без открытия сетевого порта. Вызов открытия браузера проверяется через тестовый имитатор (настоящий браузер в тестах не запускается). SQLite-тесты используют временные каталоги и не изменяют базу пользователя. Инициализируются таблицы групп и студентов. Полноценные миграции схемы, страницы студентов, редактирование, архивирование, импорт Excel и файловое хранилище пока **не** реализованы. Тесты студентов используют временную SQLite и не затрагивают базу пользователя. Создание групп в браузере проверяется с учётом CSRF и HTTP-интеграции. Главная страница теперь читает группы из SQLite через внедрённый репозиторий. Интеграционные тесты используют свободный локальный порт, чтобы исключить конфликты.

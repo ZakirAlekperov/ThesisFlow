@@ -60,6 +60,8 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     .group-list { padding: 0; margin: 0; list-style: none; }
     .group-list li { padding: 15px 0; border-top: 1px solid #e4e8f0; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
     .group-list li:first-child { border-top: 0; }
+    .group-list a { color: #214eaf; text-decoration: none; overflow-wrap: anywhere; }
+    .group-list a:hover { text-decoration: underline; }
     .group-name { font-weight: 600; }
     .group-id, .empty { color: #687488; }
     .empty { line-height: 1.6; }
@@ -81,7 +83,7 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
       {{if .Groups}}
       <ul class="group-list">
         {{range .Groups}}
-        <li data-group-id="{{.ID}}"><span class="group-name">{{.Name}}</span><span class="group-id">ID: {{.ID}}</span></li>
+        <li data-group-id="{{.ID}}"><a class="group-name" href="/groups/{{.ID}}">{{.Name}}</a><span class="group-id">ID: {{.ID}}</span></li>
         {{end}}
       </ul>
       {{else}}
@@ -116,14 +118,14 @@ func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token,
 	_, _ = w.Write(rendered.Bytes())
 }
 
-// NewHandler constructs the localhost web UI and a random per-process CSRF
-// token. It returns an error if secure randomness is unavailable, rather than
-// exposing a writable route without CSRF protection.
+// NewHandler constructs the localhost web UI with a separate student reader
+// and a random per-process CSRF token. It returns an error if secure randomness
+// is unavailable instead of exposing an unprotected writable route.
 //
-// RU: NewHandler создаёт локальный интерфейс и случайный CSRF-токен на время
-// работы программы. При недоступности безопасной случайности возвращает
-// ошибку, а не открывает форму без защиты от подделки запросов.
-func NewHandler(store GroupStore) (http.Handler, error) {
+// RU: NewHandler создаёт локальный интерфейс с отдельным источником студентов
+// и случайным CSRF-токеном на время работы приложения. При недоступности
+// безопасной случайности защищённый обработчик не создаётся.
+func NewHandler(store GroupStore, studentStore StudentLister) (http.Handler, error) {
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, fmt.Errorf("create form protection token: %w", err)
@@ -133,6 +135,9 @@ func NewHandler(store GroupStore) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		renderHome(w, r, store, token, "", "", http.StatusOK)
+	})
+	mux.HandleFunc("GET /groups/{id}", func(w http.ResponseWriter, r *http.Request) {
+		renderGroupStudents(w, r, store, studentStore)
 	})
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {
 		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))

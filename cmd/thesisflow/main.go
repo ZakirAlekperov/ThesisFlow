@@ -111,7 +111,9 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
-	handler, err := web.NewHandler(repo)
+	// Student pages use the same persistent SQLite connection.
+	// RU: Страницы студентов используют то же постоянное соединение SQLite.
+	handler, err := web.NewHandler(repo, students.NewRepository(db))
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)
 	}

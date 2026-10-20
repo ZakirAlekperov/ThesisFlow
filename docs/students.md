@@ -2,8 +2,8 @@
 
 ## English
 
-This increment introduces the first **persistent student record**. It is a
-database-level operation; the student browser form and list are separate steps.
+ThesisFlow stores student records in SQLite and now displays them on a read-only
+browser page for the selected academic group. The student creation form is separate.
 
 The `students` table holds:
 
@@ -39,13 +39,13 @@ the browser interface. A dedicated schema-migration system remains future work;
 this initial table is additive and compatible with existing empty/student-free
 workspaces.
 
-**Not implemented in this increment:** browser forms and student pages, moving
+**Not implemented in this increment:** student creation forms, moving
 students, archiving, Excel import, thesis assignments, document statuses or files.
 
 ## Русский
 
-Этот микрошаг добавляет первую **постоянную запись о студенте** в SQLite.
-Создание студентов через браузер и список студентов будут отдельными этапами.
+ThesisFlow сохраняет студентов в SQLite и теперь показывает их на странице
+выбранной группы в браузере. Форма добавления студентов пока не реализована.
 
 В таблице `students` хранятся:
 
@@ -78,7 +78,7 @@ students, archiving, Excel import, thesis assignments, document statuses or file
 Полноценная система миграций схемы пока не реализована: на этом этапе
 создаётся новая таблица без изменения существующих данных.
 
-**Пока не реализовано:** добавление и просмотр студентов через браузер,
+**Пока не реализовано:** добавление студентов через браузер,
 перевод между группами, архивирование, импорт Excel, ВКР, статусы и документы.
 
 ## Group student list / Список студентов группы
@@ -100,8 +100,13 @@ educational ID and full display name; no extra schema or tables are added.
 - The list works after closing/reopening the application database.
 - Only the selected group is returned: students of other groups are excluded.
 
-**Next micro-step:** show the selected group's students in the local browser.
-Adding students from a browser form is separate from listing them.
+**Browser view:** click a group name on the home page to open `GET /groups/{id}`.
+The page displays only that group's students, their permanent record IDs and
+educational IDs. An existing empty group shows a friendly empty state;
+missing/invalid groups return HTTP 404, and database failures return a generic
+HTTP 500. All names and IDs are escaped with `html/template`.
+
+**Next micro-step:** add a student through a browser form.
 
 ### Русский
 
@@ -120,5 +125,10 @@ Adding students from a browser form is separate from listing them.
 - После повторного открытия базы список и постоянные ID сохраняются.
 - Студенты других групп не попадают в список выбранной группы.
 
-**Следующий микрошаг:** показать студентов выбранной группы в браузере.
-Форма добавления студентов будет отдельным небольшим этапом.
+**Страница в браузере:** нажмите название группы на главной странице,
+чтобы открыть `GET /groups/{id}`. Отображаются только студенты выбранной
+группы, их внутренние ID и номера зачёток. Пустая группа показывает понятное
+сообщение, неизвестная группа возвращает HTTP 404, ошибки базы — общий
+HTTP 500. ФИО и идентификаторы экранируются через `html/template`.
+
+**Следующий микрошаг:** форма добавления студента через браузер.
