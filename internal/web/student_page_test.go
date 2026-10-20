@@ -39,7 +39,6 @@ func (f *fakeStudentLister) ListByGroup(_ context.Context, id int64) ([]students
 	return result, nil
 }
 
-
 // Create tracks writes and updates the in-memory list for redirect tests.
 // RU: Create запоминает попытки записи и добавляет студента в тестовый список.
 func (f *fakeStudentLister) Create(_ context.Context, groupID int64, educationalID, fullName string) (students.Student, error) {
