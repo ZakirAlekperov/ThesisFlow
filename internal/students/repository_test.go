@@ -84,11 +84,11 @@ func TestCreateStudentRejectsMissingFields(t *testing.T) {
 	repo, groupRepo, db := newTestRepository(t)
 	group := createTestGroup(t, groupRepo, "ИСП-401")
 	cases := []struct {
-		name string
-		groupID int64
+		name          string
+		groupID       int64
 		educationalID string
-		fullName string
-		want error
+		fullName      string
+		want          error
 	}{
 		{"blank ID", group.ID, " \n ", "Иванов Иван", ErrInvalidEducationalID},
 		{"blank name", group.ID, "ЗК-0017", " \t ", ErrInvalidFullName},
