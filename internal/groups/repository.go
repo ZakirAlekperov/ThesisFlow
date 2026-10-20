@@ -89,3 +89,32 @@ func (r *Repository) Create(ctx context.Context, name string) (Group, error) {
 	}
 	return Group{ID: id, Name: name}, nil
 }
+
+// List returns all groups in normalized-name order with stable IDs.
+// An empty repository produces an empty slice rather than nil. On query or
+// scanning errors, it returns no partial results.
+//
+// RU: List возвращает все группы с постоянными ID в порядке нормализованных
+// названий. При отсутствии групп возвращается пустой срез, а не nil.
+// При ошибке чтения частичный результат не возвращается.
+func (r *Repository) List(ctx context.Context) ([]Group, error) {
+	const query = `SELECT id, name FROM student_groups ORDER BY name_key, id`
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list groups: %w", err)
+	}
+	defer rows.Close()
+
+	groups := make([]Group, 0)
+	for rows.Next() {
+		var group Group
+		if err := rows.Scan(&group.ID, &group.Name); err != nil {
+			return nil, fmt.Errorf("scan group: %w", err)
+		}
+		groups = append(groups, group)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate groups: %w", err)
+	}
+	return groups, nil
+}
