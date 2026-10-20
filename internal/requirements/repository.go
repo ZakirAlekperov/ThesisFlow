@@ -67,12 +67,14 @@ func (r *Repository) Init(ctx context.Context) error {
 	if _, err := r.db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("initialize requirements: %w", err)
 	}
-	const indexes = `CREATE UNIQUE INDEX IF NOT EXISTS idx_requirements_group_title ON requirements(group_id, title_key)
-		WHERE student_id IS NULL;
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_requirements_student_title ON requirements(student_id, title_key)
-		WHERE student_id IS NOT NULL;`
-	if _, err := r.db.ExecContext(ctx, indexes); err != nil {
-		return fmt.Errorf("initialize requirement indexes: %w", err)
+	indexes := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_requirements_group_title ON requirements(group_id, title_key) WHERE student_id IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_requirements_student_title ON requirements(student_id, title_key) WHERE student_id IS NOT NULL`,
+	}
+	for _, statement := range indexes {
+		if _, err := r.db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("initialize requirement indexes: %w", err)
+		}
 	}
 	return nil
 }
