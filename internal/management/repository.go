@@ -8,6 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 )
 
 // Typed errors let HTTP handlers distinguish invalid data, duplicates and
@@ -171,4 +174,28 @@ func (r *Repository) SetStudentArchived(ctx context.Context, id int64, archived 
 		return fmt.Errorf("archive student: %w", err)
 	}
 	return changed(result, nil)
+}
+
+// ListArchivedGroups returns hidden records so users can restore them.
+// RU: ListArchivedGroups возвращает архивные группы для восстановления.
+func (r *Repository) ListArchivedGroups(ctx context.Context) ([]groups.Group, error) {
+ rows,err:=r.db.QueryContext(ctx,"SELECT id,name FROM student_groups WHERE archived_at IS NOT NULL ORDER BY name_key,id")
+ if err!=nil{return nil,fmt.Errorf("list archived groups: %w",err)}
+ defer rows.Close()
+ result:=make([]groups.Group,0)
+ for rows.Next(){var item groups.Group;if err:=rows.Scan(&item.ID,&item.Name);err!=nil{return nil,err};result=append(result,item)}
+ if err:=rows.Err();err!=nil{return nil,err}
+ return result,nil
+}
+
+// ListArchivedStudents returns all archived students, including groups that
+// are also archived. RU: Список архивных студентов сохраняет исходные ID.
+func (r *Repository) ListArchivedStudents(ctx context.Context) ([]students.Student, error) {
+ rows,err:=r.db.QueryContext(ctx,"SELECT id,group_id,educational_id,full_name FROM students WHERE archived_at IS NOT NULL ORDER BY full_name,id")
+ if err!=nil{return nil,fmt.Errorf("list archived students: %w",err)}
+ defer rows.Close()
+ result:=make([]students.Student,0)
+ for rows.Next(){var item students.Student;if err:=rows.Scan(&item.ID,&item.GroupID,&item.EducationalID,&item.FullName);err!=nil{return nil,err};result=append(result,item)}
+ if err:=rows.Err();err!=nil{return nil,err}
+ return result,nil
 }
