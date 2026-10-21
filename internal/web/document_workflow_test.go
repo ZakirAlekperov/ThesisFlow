@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -138,8 +137,9 @@ func TestDocumentUploadAcceptDownload(t *testing.T) {
 	if rec.Code != http.StatusOK || rec.Body.String() != original {
 		t.Errorf("download HTTP %d: %q", rec.Code, rec.Body.String())
 	}
-	if _, err := os.Stat(filepath.Join(versionStore.Root, "ИСП-401")); err != nil {
-		t.Errorf("accepted human-readable group directory missing: %v", err)
+	matches, err := filepath.Glob(filepath.Join(versionStore.Root, "ИСП-401 [[]*[]]"))
+	if err != nil || len(matches) != 1 {
+		t.Errorf("expected one accepted group directory, found %v (error: %v)", matches, err)
 	}
 }
 
