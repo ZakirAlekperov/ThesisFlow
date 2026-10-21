@@ -146,9 +146,9 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
 			Requirements: requirements.NewRepository(db),
-			Statuses: materials.NewRepository(db),
-			Versions: versions,
-			Reviews: review.NewService(db, versions),
+			Statuses:     materials.NewRepository(db),
+			Versions:     versions,
+			Reviews:      review.NewService(db, versions),
 		},
 	})
 	if err != nil {

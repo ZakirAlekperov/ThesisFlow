@@ -29,7 +29,9 @@ func documentFixture(t *testing.T) (http.Handler, int64, int64, int64, *material
 	ctx := context.Background()
 	root := t.TempDir()
 	db, err := sqlite.Open(ctx, filepath.Join(root, "thesisflow.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { _ = db.Close() })
 	gr := groups.NewRepository(db)
 	st := students.NewRepository(db)
@@ -38,19 +40,29 @@ func documentFixture(t *testing.T) (http.Handler, int64, int64, int64, *material
 	versions := fileversions.NewStore(db, filepath.Join(root, "storage"))
 	reviews := review.NewService(db, versions)
 	for _, init := range []func(context.Context) error{gr.Init, st.Init, req.Init, mat.Init, versions.Init, reviews.Init} {
-		if err := init(ctx); err != nil { t.Fatal(err) }
+		if err := init(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	g, err := gr.Create(ctx, "ИСП-401")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	s, err := st.Create(ctx, g.ID, "ЗК-0017", "Иванов Иван")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, err := req.Create(ctx, g.ID, 0, "Глава 1", "2026-12-01")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	h, err := NewHandlerWithServices(gr, st, Dependencies{
 		Requirements: req,
-		Documents: &DocumentServices{Requirements: req, Statuses: mat, Versions: versions, Reviews: reviews},
+		Documents:    &DocumentServices{Requirements: req, Statuses: mat, Versions: versions, Reviews: reviews},
 	})
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	return h, g.ID, s.ID, r.ID, mat, versions
 }
 
@@ -66,9 +78,13 @@ func documentToken(t *testing.T, handler http.Handler, page string) string {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, page, nil))
-	if rec.Code != http.StatusOK { t.Fatalf("GET %s = %d: %s", page, rec.Code, rec.Body.String()) }
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET %s = %d: %s", page, rec.Code, rec.Body.String())
+	}
 	match := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(rec.Body.String())
-	if len(match) != 2 { t.Fatalf("form token not found in %s", rec.Body.String()) }
+	if len(match) != 2 {
+		t.Fatalf("form token not found in %s", rec.Body.String())
+	}
 	return match[1]
 }
 
@@ -86,7 +102,9 @@ func TestStudentDocumentsShowsExpectedRequirements(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, page, nil))
 	for _, want := range []string{"Иванов Иван", "Глава 1", "2026-12-01", "Не сдан", "Загрузить", token} {
-		if !strings.Contains(rec.Body.String(), want) { t.Errorf("missing %q", want) }
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("missing %q", want)
+		}
 	}
 }
 
@@ -105,32 +123,52 @@ func TestDocumentUploadAcceptDownload(t *testing.T) {
 	route := fmt.Sprintf("%s/documents/%d/upload", page, requirementID)
 	var data bytes.Buffer
 	writer := multipart.NewWriter(&data)
-	if err := writer.WriteField("csrf_token", token); err != nil { t.Fatal(err) }
+	if err := writer.WriteField("csrf_token", token); err != nil {
+		t.Fatal(err)
+	}
 	file, err := writer.CreateFormFile("document", "Глава 1.docx")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	const original = "docx-test-binary"
-	if _, err := file.Write([]byte(original)); err != nil { t.Fatal(err) }
-	if err := writer.Close(); err != nil { t.Fatal(err) }
+	if _, err := file.Write([]byte(original)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
 	req := httptest.NewRequest(http.MethodPost, route, &data)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther { t.Fatalf("upload HTTP %d: %s", rec.Code, rec.Body.String()) }
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("upload HTTP %d: %s", rec.Code, rec.Body.String())
+	}
 	entry, err := statusStore.Get(context.Background(), studentID, requirementID)
-	if err != nil { t.Fatal(err) }
-	if entry.Status != materials.UnderReview { t.Errorf("status after upload = %s", entry.Status) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry.Status != materials.UnderReview {
+		t.Errorf("status after upload = %s", entry.Status)
+	}
 	versions, err := versionStore.List(context.Background(), studentID, requirementID)
-	if err != nil || len(versions) != 1 { t.Fatalf("versions = %#v, error = %v", versions, err) }
+	if err != nil || len(versions) != 1 {
+		t.Fatalf("versions = %#v, error = %v", versions, err)
+	}
 
 	acceptURL := fmt.Sprintf("%s/documents/%d/accept/%d", page, requirementID, versions[0].ID)
-	form := strings.NewReader("csrf_token="+token)
+	form := strings.NewReader("csrf_token=" + token)
 	req = httptest.NewRequest(http.MethodPost, acceptURL, form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther { t.Fatalf("accept HTTP %d: %s", rec.Code, rec.Body.String()) }
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("accept HTTP %d: %s", rec.Code, rec.Body.String())
+	}
 	entry, err = statusStore.Get(context.Background(), studentID, requirementID)
-	if err != nil || entry.Status != materials.Accepted { t.Fatalf("accepted status = %+v, err=%v", entry, err) }
+	if err != nil || entry.Status != materials.Accepted {
+		t.Fatalf("accepted status = %+v, err=%v", entry, err)
+	}
 	downloadURL := fmt.Sprintf("%s/documents/%d/versions/%d/download", page, requirementID, versions[0].ID)
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, downloadURL, nil))
@@ -162,7 +200,11 @@ func TestDocumentUploadRejectsForgedRequests(t *testing.T) {
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden { t.Errorf("POST returned %d, want 403", rec.Code) }
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("POST returned %d, want 403", rec.Code)
+	}
 	items, err := versionStore.List(context.Background(), studentID, requirementID)
-	if err != nil || len(items) != 0 { t.Errorf("unexpected versions %#v: %v", items, err) }
+	if err != nil || len(items) != 0 {
+		t.Errorf("unexpected versions %#v: %v", items, err)
+	}
 }
