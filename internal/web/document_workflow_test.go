@@ -19,10 +19,10 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
-	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
-	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 )
 
 // documentFixture builds real repositories to verify the entire workflow.
@@ -47,7 +47,9 @@ func documentFixture(t *testing.T) (http.Handler, int64, int64, int64, *material
 			t.Fatal(err)
 		}
 	}
-	if err := migrate.Apply(ctx, db); err != nil { t.Fatal(err) }
+	if err := migrate.Apply(ctx, db); err != nil {
+		t.Fatal(err)
+	}
 	g, err := gr.Create(ctx, "ИСП-401")
 	if err != nil {
 		t.Fatal(err)

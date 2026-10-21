@@ -17,9 +17,9 @@ import (
 // missing archived/active records without exposing internal SQLite details.
 // RU: Типизированные ошибки используются для безопасной проверки форм.
 var (
-	ErrInvalid   = errors.New("invalid record data")
-	ErrDuplicate = errors.New("normalized identifier already exists")
-	ErrNotFound  = errors.New("record does not exist")
+	ErrInvalid       = errors.New("invalid record data")
+	ErrDuplicate     = errors.New("normalized identifier already exists")
+	ErrNotFound      = errors.New("record does not exist")
 	ErrAcceptedFiles = errors.New("accepted documents require file-path reconciliation before renaming")
 )
 
@@ -57,8 +57,12 @@ func changed(result sql.Result, err error) error {
 // RU: hasAcceptedFiles защищает пути принятых документов от рассинхронизации.
 func (r *Repository) hasAcceptedFiles(ctx context.Context, recordID int64, byGroup bool) (bool, error) {
 	ready, err := exists(ctx, r.db, "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='accepted_files')")
-	if err != nil { return false, err }
-	if !ready { return false, nil }
+	if err != nil {
+		return false, err
+	}
+	if !ready {
+		return false, nil
+	}
 	if byGroup {
 		return exists(ctx, r.db, `SELECT EXISTS(
 			SELECT 1 FROM accepted_files af JOIN students st ON af.student_id=st.id
@@ -86,8 +90,12 @@ func (r *Repository) RenameGroup(ctx context.Context, id int64, name string) err
 		return ErrDuplicate
 	}
 	approved, err := r.hasAcceptedFiles(ctx, id, true)
-	if err != nil { return fmt.Errorf("check accepted group files: %w", err) }
-	if approved { return ErrAcceptedFiles }
+	if err != nil {
+		return fmt.Errorf("check accepted group files: %w", err)
+	}
+	if approved {
+		return ErrAcceptedFiles
+	}
 	result, err := r.db.ExecContext(ctx, "UPDATE student_groups SET name=?, name_key=? WHERE id=?", name, key, id)
 	if err != nil {
 		return fmt.Errorf("rename academic group: %w", err)
@@ -128,8 +136,12 @@ func (r *Repository) UpdateStudent(ctx context.Context, id int64, educationalID,
 		return ErrDuplicate
 	}
 	approved, err := r.hasAcceptedFiles(ctx, id, false)
-	if err != nil { return fmt.Errorf("check accepted student files: %w", err) }
-	if approved { return ErrAcceptedFiles }
+	if err != nil {
+		return fmt.Errorf("check accepted student files: %w", err)
+	}
+	if approved {
+		return ErrAcceptedFiles
+	}
 	result, err := r.db.ExecContext(ctx, "UPDATE students SET educational_id=?, educational_id_key=?, full_name=? WHERE id=?", educationalID, key, fullName, id)
 	if err != nil {
 		return fmt.Errorf("update student: %w", err)
@@ -154,8 +166,12 @@ func (r *Repository) MoveStudent(ctx context.Context, id, target int64) error {
 		return ErrNotFound
 	}
 	approved, err := r.hasAcceptedFiles(ctx, id, false)
-	if err != nil { return fmt.Errorf("check accepted student files: %w", err) }
-	if approved { return ErrAcceptedFiles }
+	if err != nil {
+		return fmt.Errorf("check accepted student files: %w", err)
+	}
+	if approved {
+		return ErrAcceptedFiles
+	}
 	result, err := r.db.ExecContext(ctx, "UPDATE students SET group_id=? WHERE id=?", target, id)
 	if err != nil {
 		return fmt.Errorf("move student: %w", err)
@@ -179,23 +195,43 @@ func (r *Repository) SetStudentArchived(ctx context.Context, id int64, archived 
 // ListArchivedGroups returns hidden records so users can restore them.
 // RU: ListArchivedGroups возвращает архивные группы для восстановления.
 func (r *Repository) ListArchivedGroups(ctx context.Context) ([]groups.Group, error) {
- rows,err:=r.db.QueryContext(ctx,"SELECT id,name FROM student_groups WHERE archived_at IS NOT NULL ORDER BY name_key,id")
- if err!=nil{return nil,fmt.Errorf("list archived groups: %w",err)}
- defer rows.Close()
- result:=make([]groups.Group,0)
- for rows.Next(){var item groups.Group;if err:=rows.Scan(&item.ID,&item.Name);err!=nil{return nil,err};result=append(result,item)}
- if err:=rows.Err();err!=nil{return nil,err}
- return result,nil
+	rows, err := r.db.QueryContext(ctx, "SELECT id,name FROM student_groups WHERE archived_at IS NOT NULL ORDER BY name_key,id")
+	if err != nil {
+		return nil, fmt.Errorf("list archived groups: %w", err)
+	}
+	defer rows.Close()
+	result := make([]groups.Group, 0)
+	for rows.Next() {
+		var item groups.Group
+		if err := rows.Scan(&item.ID, &item.Name); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // ListArchivedStudents returns all archived students, including groups that
 // are also archived. RU: Список архивных студентов сохраняет исходные ID.
 func (r *Repository) ListArchivedStudents(ctx context.Context) ([]students.Student, error) {
- rows,err:=r.db.QueryContext(ctx,"SELECT id,group_id,educational_id,full_name FROM students WHERE archived_at IS NOT NULL ORDER BY full_name,id")
- if err!=nil{return nil,fmt.Errorf("list archived students: %w",err)}
- defer rows.Close()
- result:=make([]students.Student,0)
- for rows.Next(){var item students.Student;if err:=rows.Scan(&item.ID,&item.GroupID,&item.EducationalID,&item.FullName);err!=nil{return nil,err};result=append(result,item)}
- if err:=rows.Err();err!=nil{return nil,err}
- return result,nil
+	rows, err := r.db.QueryContext(ctx, "SELECT id,group_id,educational_id,full_name FROM students WHERE archived_at IS NOT NULL ORDER BY full_name,id")
+	if err != nil {
+		return nil, fmt.Errorf("list archived students: %w", err)
+	}
+	defer rows.Close()
+	result := make([]students.Student, 0)
+	for rows.Next() {
+		var item students.Student
+		if err := rows.Scan(&item.ID, &item.GroupID, &item.EducationalID, &item.FullName); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }

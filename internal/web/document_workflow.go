@@ -36,14 +36,14 @@ type documentItem struct {
 }
 
 type documentPage struct {
-	FullName  string
-	GroupID   int64
-	StudentID int64
-	CSRFToken string
-	Documents []documentItem
-	ThesisTopic string
+	FullName     string
+	GroupID      int64
+	StudentID    int64
+	CSRFToken    string
+	Documents    []documentItem
+	ThesisTopic  string
 	CanEditTopic bool
-	OrderRef string
+	OrderRef     string
 }
 
 var documentTemplate = template.Must(template.New("documents").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Материалы ВКР — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;max-width:850px;margin:35px auto;padding:0 16px;color:#202939;background:#f6f7fb}.panel{background:white;padding:20px;margin:16px 0;border:1px solid #ddd;border-radius:12px}label{display:block;margin:8px 0}button{margin:8px;padding:9px 15px;border:0;border-radius:6px;background:#214eaf;color:white}a{color:#214eaf}</style></head><body><a href="/groups/{{.GroupID}}">← К учебной группе</a><h1>Материалы ВКР: {{.FullName}}</h1>
@@ -141,7 +141,10 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 	data := documentPage{FullName: title, GroupID: groupID, StudentID: studentID, CSRFToken: token}
 	if docs.Thesis != nil {
 		record, err := docs.Thesis.Get(r.Context(), studentID)
-		if err != nil { documentError(w, r, err); return }
+		if err != nil {
+			documentError(w, r, err)
+			return
+		}
 		data.ThesisTopic = record.Topic
 		data.CanEditTopic = true
 		data.OrderRef = record.OrderReference

@@ -28,15 +28,15 @@ type RecordManager interface {
 }
 
 type managedGroup struct {
-	Group groups.Group
+	Group    groups.Group
 	Students []students.Student
 }
 
 type managementData struct {
-	Groups []managedGroup
-	ArchivedGroups []groups.Group
+	Groups           []managedGroup
+	ArchivedGroups   []groups.Group
 	ArchivedStudents []students.Student
-	Token string
+	Token            string
 }
 
 // managementTemplate deliberately uses standard Go html/template and forms,
@@ -67,69 +67,114 @@ var managementTemplate = template.Must(template.New("management").Parse(`<!docty
 
 // renderManagement loads current and archived records and writes escaped HTML.
 // RU: renderManagement строит безопасную страницу активных/архивных записей.
-func renderManagement(w http.ResponseWriter,r *http.Request,gr GroupStore,st StudentStore,manager RecordManager,token string){
-	groupsList,err:=gr.List(r.Context())
-	if err!=nil {http.Error(w,"Не удалось загрузить группы.",500);return}
-	data:=managementData{Token:token}
-	for _,group:=range groupsList {
-		people,err:=st.ListByGroup(r.Context(),group.ID)
-		if err!=nil{http.Error(w,"Не удалось загрузить студентов.",500);return}
-		data.Groups=append(data.Groups,managedGroup{Group:group,Students:people})
+func renderManagement(w http.ResponseWriter, r *http.Request, gr GroupStore, st StudentStore, manager RecordManager, token string) {
+	groupsList, err := gr.List(r.Context())
+	if err != nil {
+		http.Error(w, "Не удалось загрузить группы.", 500)
+		return
 	}
-	data.ArchivedGroups,err=manager.ListArchivedGroups(r.Context())
-	if err!=nil{http.Error(w,"Не удалось загрузить архив групп.",500);return}
-	data.ArchivedStudents,err=manager.ListArchivedStudents(r.Context())
-	if err!=nil{http.Error(w,"Не удалось загрузить архив студентов.",500);return}
+	data := managementData{Token: token}
+	for _, group := range groupsList {
+		people, err := st.ListByGroup(r.Context(), group.ID)
+		if err != nil {
+			http.Error(w, "Не удалось загрузить студентов.", 500)
+			return
+		}
+		data.Groups = append(data.Groups, managedGroup{Group: group, Students: people})
+	}
+	data.ArchivedGroups, err = manager.ListArchivedGroups(r.Context())
+	if err != nil {
+		http.Error(w, "Не удалось загрузить архив групп.", 500)
+		return
+	}
+	data.ArchivedStudents, err = manager.ListArchivedStudents(r.Context())
+	if err != nil {
+		http.Error(w, "Не удалось загрузить архив студентов.", 500)
+		return
+	}
 	var body bytes.Buffer
-	if err:=managementTemplate.Execute(&body,data);err!=nil{http.Error(w,"Ошибка отображения.",500);return}
-	w.Header().Set("Content-Type","text/html; charset=utf-8")
-	_,_=w.Write(body.Bytes())
+	if err := managementTemplate.Execute(&body, data); err != nil {
+		http.Error(w, "Ошибка отображения.", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(body.Bytes())
 }
 
 // applyManagementAction checks the app CSRF token and dispatches only known
 // updates. Invalid and conflicting operations return typed HTTP errors.
 // RU: applyManagementAction проверяет CSRF и выполняет только разрешённые действия.
-func applyManagementAction(w http.ResponseWriter,r *http.Request,manager RecordManager,token,kind string){
-	id,err:=strconv.ParseInt(r.PathValue("id"),10,64)
-	if err!=nil || id<=0 {http.NotFound(w,r);return}
-	media,_,err:=mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err!=nil || media!="application/x-www-form-urlencoded"{http.Error(w,"Неверный формат формы.",415);return}
-	r.Body=http.MaxBytesReader(w,r.Body,4096)
-	if err:=r.ParseForm();err!=nil{http.Error(w,"Некорректная форма.",400);return}
-	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")),[]byte(token))!=1{
-		http.Error(w,"Недействительный запрос.",403);return
+func applyManagementAction(w http.ResponseWriter, r *http.Request, manager RecordManager, token, kind string) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
 	}
-	action:=r.PathValue("action")
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || media != "application/x-www-form-urlencoded" {
+		http.Error(w, "Неверный формат формы.", 415)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Некорректная форма.", 400)
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")), []byte(token)) != 1 {
+		http.Error(w, "Недействительный запрос.", 403)
+		return
+	}
+	action := r.PathValue("action")
 	switch kind {
 	case "groups":
 		switch action {
-		case "rename":err=manager.RenameGroup(r.Context(),id,r.PostForm.Get("name"))
-		case "archive":err=manager.SetGroupArchived(r.Context(),id,true)
-		case "restore":err=manager.SetGroupArchived(r.Context(),id,false)
-		default:http.NotFound(w,r);return
+		case "rename":
+			err = manager.RenameGroup(r.Context(), id, r.PostForm.Get("name"))
+		case "archive":
+			err = manager.SetGroupArchived(r.Context(), id, true)
+		case "restore":
+			err = manager.SetGroupArchived(r.Context(), id, false)
+		default:
+			http.NotFound(w, r)
+			return
 		}
 	case "students":
 		switch action {
-		case "update":err=manager.UpdateStudent(r.Context(),id,r.PostForm.Get("educational_id"),r.PostForm.Get("full_name"))
+		case "update":
+			err = manager.UpdateStudent(r.Context(), id, r.PostForm.Get("educational_id"), r.PostForm.Get("full_name"))
 		case "move":
-			target,parseErr:=strconv.ParseInt(r.PostForm.Get("group_id"),10,64)
-			if parseErr!=nil {http.Error(w,"Неверная группа.",400);return}
-			err=manager.MoveStudent(r.Context(),id,target)
-		case "archive":err=manager.SetStudentArchived(r.Context(),id,true)
-		case "restore":err=manager.SetStudentArchived(r.Context(),id,false)
-		default:http.NotFound(w,r);return
+			target, parseErr := strconv.ParseInt(r.PostForm.Get("group_id"), 10, 64)
+			if parseErr != nil {
+				http.Error(w, "Неверная группа.", 400)
+				return
+			}
+			err = manager.MoveStudent(r.Context(), id, target)
+		case "archive":
+			err = manager.SetStudentArchived(r.Context(), id, true)
+		case "restore":
+			err = manager.SetStudentArchived(r.Context(), id, false)
+		default:
+			http.NotFound(w, r)
+			return
 		}
-	default:http.NotFound(w,r);return
+	default:
+		http.NotFound(w, r)
+		return
 	}
-	if err!=nil {
+	if err != nil {
 		switch {
-		case errors.Is(err,management.ErrAcceptedFiles):http.Error(w,"У записи есть принятые файлы: сначала нужен безопасный перенос документов.",409)
-		case errors.Is(err,management.ErrDuplicate):http.Error(w,"Такое название или учебный номер уже существует.",409)
-		case errors.Is(err,management.ErrInvalid):http.Error(w,"Проверьте введённые значения.",400)
-		case errors.Is(err,management.ErrNotFound):http.NotFound(w,r)
-		default:http.Error(w,"Не удалось изменить запись.",500)
+		case errors.Is(err, management.ErrAcceptedFiles):
+			http.Error(w, "У записи есть принятые файлы: сначала нужен безопасный перенос документов.", 409)
+		case errors.Is(err, management.ErrDuplicate):
+			http.Error(w, "Такое название или учебный номер уже существует.", 409)
+		case errors.Is(err, management.ErrInvalid):
+			http.Error(w, "Проверьте введённые значения.", 400)
+		case errors.Is(err, management.ErrNotFound):
+			http.NotFound(w, r)
+		default:
+			http.Error(w, "Не удалось изменить запись.", 500)
 		}
 		return
 	}
-	http.Redirect(w,r,"/manage",http.StatusSeeOther)
+	http.Redirect(w, r, "/manage", http.StatusSeeOther)
 }
