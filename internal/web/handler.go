@@ -68,7 +68,7 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     .group-name { font-weight: 600; }
     .group-id, .empty { color: #687488; }
     .empty { line-height: 1.6; }
-  </style>
+  </style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 </head>
 <body>
   <main>
