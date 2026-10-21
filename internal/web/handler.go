@@ -75,6 +75,7 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     <nav class="tabs" aria-label="Разделы приложения">
       <a href="/" aria-current="page">Учебные группы</a>
       <a href="/templates">Шаблоны</a>
+      <a href="/manage">Управление и архив</a>
     </nav>
     <h1>ThesisFlow</h1>
     <p class="subtitle">Локальный помощник преподавателя для учёта материалов ВКР.</p>
@@ -140,6 +141,7 @@ type Dependencies struct {
 	Requirements RequirementStore
 	Report       ReportProvider
 	Documents    *DocumentServices
+	Management   RecordManager
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -162,6 +164,17 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	token := base64.RawURLEncoding.EncodeToString(secret)
 
 	mux := http.NewServeMux()
+	if deps.Management != nil {
+		mux.HandleFunc("GET /manage", func(w http.ResponseWriter, r *http.Request) {
+			renderManagement(w,r,store,studentStore,deps.Management,token)
+		})
+		mux.HandleFunc("POST /manage/groups/{id}/{action}",func(w http.ResponseWriter,r *http.Request){
+			applyManagementAction(w,r,deps.Management,token,"groups")
+		})
+		mux.HandleFunc("POST /manage/students/{id}/{action}",func(w http.ResponseWriter,r *http.Request){
+			applyManagementAction(w,r,deps.Management,token,"students")
+		})
+	}
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		renderHome(w, r, store, token, "", "", http.StatusOK)
 	})
