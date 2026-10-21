@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/backup"
@@ -57,13 +58,21 @@ func renderBackupPage(w http.ResponseWriter, provider BackupProvider, token, res
 // downloadBackup transfers a snapshot as an attachment rather than exposing
 // local filesystem paths. RU: downloadBackup отдаёт ZIP как вложение.
 func downloadBackup(w http.ResponseWriter,r *http.Request,provider BackupProvider) {
-	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", `attachment; filename="ThesisFlow-backup.zip"`)
-	if err:=provider.Export(r.Context(),w);err!=nil{
-		// The HTTP response may already be streaming; details remain in logs
-		// rather than exposing local paths to the browser.
+	staged,err:=os.CreateTemp("","thesisflow-http-export-*.zip")
+	if err!=nil{http.Error(w,"Не удалось создать резервную копию.",500);return}
+	defer os.Remove(staged.Name())
+	defer staged.Close()
+	if err:=provider.Export(r.Context(),staged);err!=nil{
+		http.Error(w,"Не удалось создать резервную копию.",500)
 		return
 	}
+	if _,err:=staged.Seek(0,io.SeekStart);err!=nil{
+		http.Error(w,"Не удалось подготовить ZIP для скачивания.",500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="ThesisFlow-backup.zip"`)
+	_,_=io.Copy(w,staged)
 }
 
 // restoreBackup validates multipart upload size, CSRF, and file extension
