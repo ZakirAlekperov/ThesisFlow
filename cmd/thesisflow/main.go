@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
@@ -121,6 +122,12 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Статусы и история событий создаются после таблицы требований.
 	if err := materials.NewRepository(db).Init(ctx); err != nil {
 		return fmt.Errorf("initialize material status history: %w", err)
+	}
+	// File versions are stored separately from the human-readable accepted files.
+	// RU: Промежуточные версии хранятся отдельно от принятых документов.
+	versions := fileversions.NewStore(db, filepath.Join(filepath.Dir(databasePath), "storage"))
+	if err := versions.Init(ctx); err != nil {
+		return fmt.Errorf("initialize document versions: %w", err)
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
