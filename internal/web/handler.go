@@ -146,6 +146,7 @@ type Dependencies struct {
 	Documents    *DocumentServices
 	Management   RecordManager
 	Backup       BackupExporter
+	Matrix       MatrixProvider
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -172,6 +173,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	var backupGate sync.RWMutex
 
 	mux := http.NewServeMux()
+	if deps.Matrix != nil {
+		mux.HandleFunc("GET /groups/{id}/matrix", func(w http.ResponseWriter, r *http.Request) {
+			renderGroupMatrix(w, r, store, deps.Matrix)
+		})
+	}
 	if deps.Backup != nil {
 		mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
 			renderSettings(w, r, token)
