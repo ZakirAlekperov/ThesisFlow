@@ -109,7 +109,7 @@ var templatesPage = template.Must(template.New("templates").Parse(`<!doctype htm
     .download { white-space:nowrap; border:1px solid #214eaf; color:#214eaf; border-radius:8px; padding:10px 15px; text-decoration:none; font-weight:600; }
     .download:hover, .download:focus-visible { background:#edf4ff; }
     .note { line-height:1.6; font-size:.9rem; color:#596578; margin-top:22px; }
-  </style>
+  </style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 </head>
 <body>
   <main>
