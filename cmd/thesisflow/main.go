@@ -23,6 +23,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
@@ -114,6 +115,11 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Таблицу студентов создаём после таблицы учебных групп.
 	if err := students.NewRepository(db).Init(ctx); err != nil {
 		return fmt.Errorf("initialize students: %w", err)
+	}
+	// Run additive, transactional migrations before serving any user request.
+	// RU: Обновляем схему в транзакции до открытия приложения пользователю.
+	if err := migrate.Apply(ctx, db); err != nil {
+		return fmt.Errorf("migrate local database: %w", err)
 	}
 	// Requirements must exist before the HTTP interface is exposed.
 	// RU: Требования к документам создаются до запуска браузера.
