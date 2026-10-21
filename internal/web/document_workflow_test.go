@@ -20,6 +20,8 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 )
 
@@ -45,6 +47,7 @@ func documentFixture(t *testing.T) (http.Handler, int64, int64, int64, *material
 			t.Fatal(err)
 		}
 	}
+	if err := migrate.Apply(ctx, db); err != nil { t.Fatal(err) }
 	g, err := gr.Create(ctx, "ИСП-401")
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +62,7 @@ func documentFixture(t *testing.T) (http.Handler, int64, int64, int64, *material
 	}
 	h, err := NewHandlerWithServices(gr, st, Dependencies{
 		Requirements: req,
-		Documents:    &DocumentServices{Requirements: req, Statuses: mat, Versions: versions, Reviews: reviews},
+		Documents:    &DocumentServices{Requirements: req, Statuses: mat, Versions: versions, Reviews: reviews, Thesis: thesis.NewRepository(db)},
 	})
 	if err != nil {
 		t.Fatal(err)
