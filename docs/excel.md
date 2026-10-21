@@ -36,3 +36,38 @@ Do not import any records into SQLite from this parser yet.
 другие листы, вычисление формул, выбор столбцов и импорт в группу
 будут добавляться отдельно. Часть допустимых файлов Excel пока
 не будет поддерживаться. Этот парсер ещё не записывает студентов в SQLite.
+
+## Batch group import / Пакетный импорт в группу
+
+### English
+
+`importxlsx.ImportStudents(ctx, db, groupID, rows, nameColumn, idColumn, skipHeader)`
+uses **zero-based** column indexes and an existing academic group. It accepts
+rows obtained from `Read` or another validated table source.
+
+- The whole batch runs within one SQLite transaction. Invalid/duplicate
+  student IDs roll back **all** students in the uploaded batch.
+- Existing students and groups remain unchanged on failure.
+- Repeated educational IDs are rejected globally, even across groups.
+- The first row may be skipped as a header; fully blank rows are ignored.
+- Malformed selected columns or missing required fields stop the import.
+- A successful call returns the exact inserted student count.
+
+A browser-facing import form with column selection is still required.
+
+### Русский
+
+`importxlsx.ImportStudents(ctx, db, groupID, rows, nameColumn, idColumn, skipHeader)`
+принимает **нумерацию колонок с нуля** и ID существующей группы.
+
+- Весь импорт выполняется в **одной транзакции SQLite**. При пустых полях,
+  повторных учебных номерах или повреждённых строках **все** изменения
+  текущей загрузки откатываются.
+- Уже имеющиеся группы и студенты не меняются при ошибке.
+- Учебные ID уникальны среди всех групп.
+- Первую строку можно пропустить как заголовок; полностью пустые строки
+  игнорируются.
+- Ошибочный выбор колонок и отсутствующие обязательные поля запрещены.
+- После успешного импорта возвращается число добавленных студентов.
+
+Форма загрузки Excel и выбора колонок через браузер — отдельный этап.

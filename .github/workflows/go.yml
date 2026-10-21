@@ -4,7 +4,6 @@ name: Go checks
 
 on:
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
@@ -24,6 +23,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+
+      - name: Show formatting suggestions
+        run: gofmt -d .
 
       - name: Check Go formatting
         shell: bash
