@@ -1,0 +1,27 @@
+name: Temporary formatting management UI
+on:
+  push:
+    branches: [feature/0.1.12-record-management-ui]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.1.12-record-management-ui
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Apply gofmt
+        run: |
+          gofmt -w .
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add -u
+            git commit -m "style: format management UI"
+            git push origin HEAD:feature/0.1.12-record-management-ui
+          fi
