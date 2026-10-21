@@ -64,6 +64,11 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     .student-form button { justify-self: start; border: 0; border-radius: 8px; background: #214eaf; color: white; font: inherit; font-weight: 600; padding: 11px 18px; cursor: pointer; }
     .student-form :focus-visible { outline: 2px solid #214eaf; outline-offset: 2px; }
     .form-error { color: #a51d2d; margin: -12px 0 20px; }
+    .import-form { margin-top: 32px; padding-top: 24px; border-top: 1px solid #e4e8f0; display: grid; gap: 12px; }
+    .import-form label { font-weight: 600; }
+    .import-form input { padding: 10px; border: 1px solid #bfc9d7; border-radius: 8px; font: inherit; width: 100%; }
+    .import-form button { justify-self: start; border: 0; border-radius: 8px; background: #214eaf; color: white; font: inherit; font-weight: 600; padding: 11px 18px; cursor: pointer; }
+    .import-hint { font-size: 0.875rem; color: #687488; line-height: 1.5; }
     .student-list { list-style: none; margin: 0; padding: 0; }
     .student-list li { padding: 15px 0; border-top: 1px solid #e4e8f0; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
     .student-list li:first-child { border-top: 0; }
@@ -100,6 +105,18 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
       {{else}}
       <p class="empty">Студенты пока не добавлены.</p>
       {{end}}
+      <form class="import-form" action="/groups/{{.Group.ID}}/import" method="post" enctype="multipart/form-data">
+        <h2>Импорт из Excel</h2>
+        <label for="student-xlsx">Файл со студентами (.xlsx)</label>
+        <input id="student-xlsx" type="file" name="file" accept=".xlsx" required>
+        <label for="xlsx-name-column">Заголовок столбца с ФИО</label>
+        <input id="xlsx-name-column" type="text" name="name_header" value="ФИО" required>
+        <label for="xlsx-id-column">Заголовок столбца с учебным ID</label>
+        <input id="xlsx-id-column" type="text" name="id_header" value="Учебный ID" required>
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <p class="import-hint">Заголовки должны совпадать с первой строкой первого листа Excel. Если обнаружена ошибка, ни один студент из файла не будет добавлен. Максимальный размер — 10 МиБ.</p>
+        <button type="submit">Импортировать студентов</button>
+      </form>
     </section>
   </main>
 </body>
