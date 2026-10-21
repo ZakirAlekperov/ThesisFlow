@@ -130,7 +130,6 @@ func validatePreviewRequest(w http.ResponseWriter, r *http.Request, groups Group
 	r.Body=http.MaxBytesReader(w,r.Body,limit)
 	if multipart {
 		err=r.ParseMultipartForm(1<<20)
-		if r.MultipartForm!=nil{defer r.MultipartForm.RemoveAll()}
 	} else {err=r.ParseForm()}
 	if err!=nil{http.Error(w,"Недопустимый размер или формат формы.",400);return 0,false}
 	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")),[]byte(csrf))!=1{
@@ -165,6 +164,7 @@ func renderPreview(w http.ResponseWriter,r *http.Request,store *previewStore,ent
 func previewUpload(w http.ResponseWriter,r *http.Request,groups GroupStore,store *previewStore,csrf string){
 	groupID,ok:=validatePreviewRequest(w,r,groups,csrf,true)
 	if !ok{return}
+	if r.MultipartForm != nil {defer r.MultipartForm.RemoveAll()}
 	file,header,err:=r.FormFile("file")
 	if err!=nil{http.Error(w,"Выберите Excel-файл.",400);return}
 	defer file.Close()
