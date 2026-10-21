@@ -146,6 +146,7 @@ type Dependencies struct {
 	Documents    *DocumentServices
 	Management   RecordManager
 	Backup       BackupExporter
+	Restore      BackupRestorer
 	Matrix       MatrixProvider
 }
 
@@ -178,12 +179,19 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 			renderGroupMatrix(w, r, store, deps.Matrix)
 		})
 	}
-	if deps.Backup != nil {
+	if deps.Backup != nil || deps.Restore != nil {
 		mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
 			renderSettings(w, r, token)
 		})
+	}
+	if deps.Backup != nil {
 		mux.HandleFunc("POST /settings/backup", func(w http.ResponseWriter, r *http.Request) {
 			downloadBackup(w, r, token, deps.Backup)
+		})
+	}
+	if deps.Restore != nil {
+		mux.HandleFunc("POST /settings/restore", func(w http.ResponseWriter, r *http.Request) {
+			restoreBackup(w, r, token, deps.Restore)
 		})
 	}
 	mux.HandleFunc("GET /static/{name}", serveLocalAsset)
