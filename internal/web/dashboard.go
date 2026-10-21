@@ -54,7 +54,7 @@ type dashboardData struct {
 var dashboardTemplate = template.Must(template.New("dashboard").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Панель преподавателя — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 <style>body{font:16px system-ui,sans-serif;max-width:1040px;margin:35px auto;padding:0 20px}.links{display:flex;gap:14px;flex-wrap:wrap;margin:20px 0}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px}.panel{background:white;border:1px solid #dce3ed;border-radius:12px;padding:18px;margin:12px 0}.value{font-size:2rem;font-weight:700}progress{width:100%;height:16px}a{color:#214eaf}</style>
-</head><body><nav class="links"><a href="/">Группы</a><a href="/search">Поиск</a><a href="/manage">Управление</a><a href="/templates">Шаблоны</a></nav>
+</head><body><nav class="links"><a href="/">Группы</a><a href="/search">Поиск</a><a href="/manage">Управление</a><a href="/templates">Шаблоны</a><a href="/backup">Резервные копии</a></nav>
 <h1>Панель преподавателя</h1>
 <section class="metrics" aria-label="Сводка по ВКР">
 <div class="panel">Студентов<div class="value">{{.TotalStudents}}</div></div>
