@@ -125,7 +125,27 @@ func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token,
 // RU: NewHandler создаёт локальный интерфейс с отдельным хранилищем студентов
 // и случайным CSRF-токеном на время работы приложения. При недоступности
 // безопасной случайности защищённый обработчик не создаётся.
+// Dependencies collects optional local features without forcing callers to
+// install external services or change previously supported forms.
+// RU: Dependencies объединяет необязательные локальные возможности.
+type Dependencies struct {
+	Workbook     WorkbookImporter
+	Requirements RequirementStore
+}
+
+// NewHandler preserves the minimal constructor used by existing tests.
+// RU: NewHandler сохраняет простой конструктор для существующих тестов.
 func NewHandler(store GroupStore, studentStore StudentStore, importers ...WorkbookImporter) (http.Handler, error) {
+	var deps Dependencies
+	if len(importers) > 0 {
+		deps.Workbook = importers[0]
+	}
+	return NewHandlerWithServices(store, studentStore, deps)
+}
+
+// NewHandlerWithServices adds document requirements to the existing app.
+// RU: NewHandlerWithServices подключает требования к основному интерфейсу.
+func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps Dependencies) (http.Handler, error) {
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, fmt.Errorf("create form protection token: %w", err)
@@ -137,14 +157,19 @@ func NewHandler(store GroupStore, studentStore StudentStore, importers ...Workbo
 		renderHome(w, r, store, token, "", "", http.StatusOK)
 	})
 	mux.HandleFunc("GET /groups/{id}", func(w http.ResponseWriter, r *http.Request) {
-		renderGroupStudents(w, r, store, studentStore, token, "", "", "", http.StatusOK)
+		renderGroupStudents(w, r, store, studentStore, token, "", "", "", http.StatusOK, deps.Requirements)
 	})
 	mux.HandleFunc("POST /groups/{id}/students", func(w http.ResponseWriter, r *http.Request) {
-		createStudentFromForm(w, r, store, studentStore, token)
+		createStudentFromForm(w, r, store, studentStore, token, deps.Requirements)
 	})
-	if len(importers) > 0 && importers[0] != nil {
+	if deps.Workbook != nil {
 		mux.HandleFunc("POST /groups/{id}/import", func(w http.ResponseWriter, r *http.Request) {
-			importStudentsFromWorkbook(w, r, store, importers[0], token)
+			importStudentsFromWorkbook(w, r, store, deps.Workbook, token)
+		})
+	}
+	if deps.Requirements != nil {
+		mux.HandleFunc("POST /groups/{id}/requirements", func(w http.ResponseWriter, r *http.Request) {
+			createGroupRequirement(w, r, store, deps.Requirements, token)
 		})
 	}
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {

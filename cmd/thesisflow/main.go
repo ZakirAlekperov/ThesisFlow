@@ -18,6 +18,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
@@ -110,11 +111,19 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	if err := students.NewRepository(db).Init(ctx); err != nil {
 		return fmt.Errorf("initialize students: %w", err)
 	}
+	// Requirements must exist before the HTTP interface is exposed.
+	// RU: Требования к документам создаются до запуска браузера.
+	if err := requirements.NewRepository(db).Init(ctx); err != nil {
+		return fmt.Errorf("initialize document requirements: %w", err)
+	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
 	// Student pages use the same persistent SQLite connection.
 	// RU: Страницы студентов используют то же постоянное соединение SQLite.
-	handler, err := web.NewHandler(repo, students.NewRepository(db), importxlsx.Service{DB: db})
+	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
+		Workbook:     importxlsx.Service{DB: db},
+		Requirements: requirements.NewRepository(db),
+	})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)
 	}
