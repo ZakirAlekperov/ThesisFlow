@@ -91,3 +91,16 @@ of stacked PRs, see [docs/release-0.1.10.md](docs/release-0.1.10.md).
 версия. Команда `thesisflow version` показывает номер сборки. Реализованные
 возможности, ограничения, порядок проверки PR и план ручных испытаний описаны
 в [docs/release-0.1.10.md](docs/release-0.1.10.md).
+
+## Downloadable templates / Скачиваемые шаблоны
+
+EN: The local application's **Шаблоны** tab at `/templates` offers real
+downloadable XLSX student rosters (20 fictional students plus a blank roster),
+DOCX chapter revisions, and a manual testing guide. **No database records are
+created** until a user imports/uploads a file through the normal interface.
+See [docs/templates.md](docs/templates.md).
+
+RU: В приложении появился отдельный раздел **«Шаблоны»** (`/templates`):
+Excel-список на 20 вымышленных студентов, пустой шаблон и несколько настоящих
+Word-документов для проверки версий и статусов ВКР. Скачивание **не создаёт
+данные в SQLite**. Инструкция — [docs/templates.md](docs/templates.md).

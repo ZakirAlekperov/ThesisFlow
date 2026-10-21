@@ -47,6 +47,9 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     * { box-sizing: border-box; }
     body { margin: 0; }
     main { width: min(800px, 100% - 32px); margin: 64px auto; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; border-bottom: 1px solid #dce2eb; padding-bottom: 12px; }
+    .tabs a { display: inline-block; padding: 10px 16px; border-radius: 8px; text-decoration: none; color: #214eaf; }
+    .tabs a[aria-current=page] { background: #214eaf; color: white; font-weight: 600; }
     h1 { font-size: 2rem; margin-bottom: 8px; }
     .subtitle { color: #596578; margin-bottom: 36px; line-height: 1.6; }
     .panel { background: white; border: 1px solid #e4e8f0; border-radius: 16px; padding: 24px; }
@@ -69,6 +72,10 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
 </head>
 <body>
   <main>
+    <nav class="tabs" aria-label="Разделы приложения">
+      <a href="/" aria-current="page">Учебные группы</a>
+      <a href="/templates">Шаблоны</a>
+    </nav>
     <h1>ThesisFlow</h1>
     <p class="subtitle">Локальный помощник преподавателя для учёта материалов ВКР.</p>
     <section class="panel" aria-labelledby="groups-heading">
@@ -158,6 +165,8 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		renderHome(w, r, store, token, "", "", http.StatusOK)
 	})
+	mux.HandleFunc("GET /templates", renderTemplates)
+	mux.HandleFunc("GET /templates/download/{id}", downloadTemplate)
 	mux.HandleFunc("GET /groups/{id}", func(w http.ResponseWriter, r *http.Request) {
 		renderGroupStudents(w, r, store, studentStore, token, "", "", "", http.StatusOK, deps.Requirements)
 	})

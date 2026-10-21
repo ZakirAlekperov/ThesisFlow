@@ -54,6 +54,8 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     * { box-sizing: border-box; }
     body { margin: 0; }
     main { width: min(800px, 100% - 32px); margin: 64px auto; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; border-bottom: 1px solid #dce2eb; padding-bottom: 12px; }
+    .tabs a { display: inline-block; padding: 10px 16px; border-radius: 8px; text-decoration: none; color: #214eaf; }
     .back { display: inline-block; margin-bottom: 24px; color: #214eaf; text-decoration: none; }
     .back:hover { text-decoration: underline; }
     h1 { font-size: 2rem; margin-bottom: 8px; overflow-wrap: anywhere; }
@@ -81,6 +83,10 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
 </head>
 <body>
   <main>
+    <nav class="tabs" aria-label="Разделы приложения">
+      <a href="/">Учебные группы</a>
+      <a href="/templates">Шаблоны</a>
+    </nav>
     <a class="back" href="/">← Все учебные группы</a>
     <h1>{{.Group.Name}}</h1>
     <p class="subtitle">Список студентов учебной группы.</p>
