@@ -144,6 +144,12 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Workbook:     importxlsx.Service{DB: db},
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
+		Documents: &web.DocumentServices{
+			Requirements: requirements.NewRepository(db),
+			Statuses:     materials.NewRepository(db),
+			Versions:     versions,
+			Reviews:      review.NewService(db, versions),
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)
@@ -168,6 +174,30 @@ func launch(ctx context.Context, output io.Writer, openBrowser func(string) erro
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Informational commands run without opening a workspace or HTTP server.
+	// RU: Информационные команды не открывают SQLite и HTTP-сервер.
+	if len(os.Args) == 2 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		if err := writeVersion(os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Backup commands run without launching the HTTP server or browser.
+	// RU: Команды копирования не запускают веб-сервер и браузер.
+	if len(os.Args) > 1 {
+		configDir, err := os.UserConfigDir()
+		if err == nil {
+			err = runBackupCommand(ctx, filepath.Join(configDir, "ThesisFlow"), os.Args[1:], os.Stdout)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if err := launch(ctx, os.Stdout, browser.Open); err != nil {
 		fmt.Fprintln(os.Stderr, err)

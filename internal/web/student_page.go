@@ -100,7 +100,7 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
       <ul class="student-list">
         {{range .Students}}
         <li data-student-id="{{.ID}}">
-          <span class="student-name">{{.FullName}}</span>
+          <span class="student-name"><a href="/groups/{{$.Group.ID}}/students/{{.ID}}">{{.FullName}}</a></span>
           <span class="student-id">Учебный ID: {{.EducationalID}}</span>
         </li>
         {{end}}

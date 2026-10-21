@@ -64,3 +64,30 @@ RU: На странице учебной группы нажмите **«Печ�
 Откроется отчёт с числом студентов, требуемых, принятых, просроченных
 документов и процентом готовности. Для печати или PDF используйте печать
 браузера. Отчёт не изменяет данные SQLite.
+
+## Portable builds / Переносимые сборки
+
+EN: GitHub Actions **Portable builds** creates downloadable binaries for
+macOS ARM64/AMD64, Windows AMD64 and Linux AMD64. No Go installation is
+needed to run a downloaded binary. It contains the local browser app and
+backup commands. Build artifacts are attached to the workflow run.
+
+RU: GitHub Actions **Portable builds** создаёт архивы приложения для
+macOS ARM64/AMD64, Windows AMD64 и Linux AMD64. Для запуска готового файла
+устанавливать Go не требуется. В архивах есть приложение и команды
+резервного копирования. Сборки доступны как артефакты запуска Actions.
+
+Backup instructions / Инструкция по резервному копированию:
+[docs/backup.md](docs/backup.md).
+
+## 0.1.10 candidate / Кандидат в выпуск 0.1.10
+
+**English:** this branch is a release candidate, not a published stable
+release. Run `thesisflow version` to inspect the build. For the detailed
+feature inventory, limitations, manual QA checklist and the review order
+of stacked PRs, see [docs/release-0.1.10.md](docs/release-0.1.10.md).
+
+**Русский:** эта ветка — кандидат в выпуск, а не опубликованная стабильная
+версия. Команда `thesisflow version` показывает номер сборки. Реализованные
+возможности, ограничения, порядок проверки PR и план ручных испытаний описаны
+в [docs/release-0.1.10.md](docs/release-0.1.10.md).

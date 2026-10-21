@@ -20,8 +20,7 @@ snapshot. Database and file snapshots are not yet an atomic multi-resource
 transaction. Individual files above 64 MiB or archives above 512 MiB are not
 supported by this initial implementation.
 
-The Go service is available now. The user-facing backup command is the next
-separate PR; automatic scheduled backups are not included.
+The Go service and user-facing backup commands are available; automatic scheduled backups are not included.
 
 ## Русский
 
@@ -42,5 +41,32 @@ ThesisFlow. `backup.Export(ctx, db, storageDir, destination)` создаёт
 транзакцией. Ограничения начальной версии: файл не более 64 МиБ, ZIP не более
 512 МиБ.
 
-Go-сервис уже реализован. Команда экспорта/восстановления для пользователя
-будет добавлена отдельным PR; автосоздание копий пока не предусмотрено.
+Go-сервис и команды экспорта/восстановления доступны; автоматическое создание копий пока не предусмотрено.
+
+## Command line / Командная строка
+
+English — **stop the running ThesisFlow app before creating a backup**. Build
+or run the same executable in terminal:
+
+```bash
+go run ./cmd/thesisflow backup export /safe/place/thesisflow-snapshot.zip
+go run ./cmd/thesisflow backup restore /safe/place/thesisflow-snapshot.zip /safe/place/ThesisFlow-recovered
+```
+
+The export command uses the standard OS-specific user configuration directory
+(`ThesisFlow/thesisflow.sqlite` and its adjacent `storage/` directory).
+Recovery goes to a **new directory only**, never directly over live user data.
+After checking recovered data, move it to the active location while the app is
+stopped; always keep the existing active workspace until verified.
+
+Русский — **перед созданием резервной копии остановите ThesisFlow**.
+
+```bash
+go run ./cmd/thesisflow backup export /папка/thesisflow-snapshot.zip
+go run ./cmd/thesisflow backup restore /папка/thesisflow-snapshot.zip /папка/ThesisFlow-recovered
+```
+
+Экспорт использует системный каталог настроек пользователя, где находятся
+`ThesisFlow/thesisflow.sqlite` и `storage/`. Восстановление выполняется
+**только в новую папку**, а не поверх активной базы. Проверьте данные перед
+заменой рабочего каталога, сохраняя прежнюю копию до окончания проверки.
