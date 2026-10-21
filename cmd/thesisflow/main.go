@@ -21,6 +21,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
@@ -128,6 +129,11 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	versions := fileversions.NewStore(db, filepath.Join(filepath.Dir(databasePath), "storage"))
 	if err := versions.Init(ctx); err != nil {
 		return fmt.Errorf("initialize document versions: %w", err)
+	}
+	// Human-readable accepted documents are indexed separately from uploads.
+	// RU: Принятые файлы индексируются отдельно от всех загруженных версий.
+	if err := review.NewService(db, versions).Init(ctx); err != nil {
+		return fmt.Errorf("initialize accepted document projection: %w", err)
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.

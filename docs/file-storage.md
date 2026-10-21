@@ -77,3 +77,73 @@ SQLite теоретически возможен лишний служебный
 **Человекочитаемая папка принятых документов** будет создана на этапе
 подтверждения преподавателем. Загрузка новой версии не заменяет старый
 принятый документ. Резервное копирование — отдельный этап.
+
+## Accepted-file projection / Папка принятых документов (0.1.07)
+
+### English
+
+The approval service `review.NewService(db, versions)` provides
+`Init(ctx)`, `Accept(ctx,studentID,requirementID,versionID)` and
+`Reject(ctx,studentID,requirementID,versionID)`.
+
+When a teacher accepts a version, ThesisFlow creates a readable copy:
+
+```text
+storage/
+  ИСП_401 [1]/
+    Иванов Иван [ЗК_001-17]/
+      Глава 1.docx
+  .internal/
+    versions/
+      ... every historical version, unchanged ...
+```
+
+The original upload name is **never** used as the accepted filename. The
+requirement title supplies the filename, and the extension comes from the
+reviewed version. Folder names retain readable group/student information;
+internal numeric IDs eliminate collisions. Characters invalid on macOS,
+Linux or Windows are normalized.
+
+A replacement upload changes status back to `under_review` but **does not**
+replace the previously accepted file. Only a new `Accept` replaces the
+accepted projection. The previous accepted copy is backed up temporarily
+during the replacement and restored if the database update fails. Rejection
+marks the current document `needs_revision` and leaves the accepted copy.
+
+Approval updates `accepted_files`, the accepted version flag, the current
+material status and its event history in one SQLite transaction. The
+filesystem/SQL boundary still requires power-loss recovery tooling in a
+future reliability pass. A full backup should include both the database and
+the entire `storage` directory.
+
+### Русский
+
+Служба `review.NewService(db, versions)` предоставляет методы
+`Init`, `Accept` («Принять») и `Reject` («На доработку»).
+
+После приёмки формируется понятная файловая структура:
+
+```text
+storage/
+  ИСП_401 [1]/
+    Иванов Иван [ЗК_001-17]/
+      Глава 1.docx
+  .internal/
+    versions/
+      ... все исторические версии документов ...
+```
+
+Имя исходного файла не влияет на имя принятого документа: используется
+название требования, например «Глава 1.docx». В именах каталогов сохраняются
+ФИО/название группы и уникальные ID; запрещённые символы ОС нормализуются.
+
+Повторная загрузка переводит документ «На проверке», но **не удаляет
+ранее принятую копию**. Замена происходит исключительно при новой приёмке.
+Старая копия временно защищена резервным переименованием и восстанавливается
+при ошибке записи SQLite. При отправке на доработку принятая копия остаётся.
+
+Решение преподавателя, флаг принятой версии, актуальный статус и история
+фиксируются одной транзакцией SQLite. Но SQLite и файловая система не имеют
+общей транзакции: для полной защиты от внезапного обесточивания потребуется
+дополнительный механизм восстановления. Резервная копия обязана включать
+и SQLite, и **весь** каталог `storage`.
