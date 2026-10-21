@@ -44,20 +44,31 @@ func restoreBackup(w http.ResponseWriter, r *http.Request, token string, service
 		}
 		return
 	}
-	if r.MultipartForm != nil { defer r.MultipartForm.RemoveAll() }
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
 	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")), []byte(token)) != 1 {
 		http.Error(w, "Недействительный запрос.", http.StatusForbidden)
 		return
 	}
 	file, _, err := r.FormFile("archive")
-	if err != nil { http.Error(w, "Выберите ZIP-файл.", http.StatusBadRequest); return }
+	if err != nil {
+		http.Error(w, "Выберите ZIP-файл.", http.StatusBadRequest)
+		return
+	}
 	defer file.Close()
 	dir, err := os.MkdirTemp("", "thesisflow-restore-upload-*")
-	if err != nil { http.Error(w, "Ошибка подготовки.", http.StatusInternalServerError); return }
+	if err != nil {
+		http.Error(w, "Ошибка подготовки.", http.StatusInternalServerError)
+		return
+	}
 	defer os.RemoveAll(dir)
 	temp := filepath.Join(dir, "upload.zip")
 	out, err := os.OpenFile(temp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil { http.Error(w, "Ошибка записи.", http.StatusInternalServerError); return }
+	if err != nil {
+		http.Error(w, "Ошибка записи.", http.StatusInternalServerError)
+		return
+	}
 	_, copyErr := io.Copy(out, io.LimitReader(file, backup.MaxArchiveBytes+1))
 	closeErr := out.Close()
 	if copyErr != nil || closeErr != nil {
@@ -70,7 +81,10 @@ func restoreBackup(w http.ResponseWriter, r *http.Request, token string, service
 		return
 	}
 	target, err := service.Restore(r.Context(), temp)
-	if err != nil { http.Error(w, "Не удалось проверить и восстановить архив.", http.StatusBadRequest); return }
+	if err != nil {
+		http.Error(w, "Не удалось проверить и восстановить архив.", http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = restoredTemplate.Execute(w, target)
 }
