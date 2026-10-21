@@ -13,7 +13,7 @@ import (
 // RU: workspaceBackup подключает резервное копирование к локальному GUI
 // без публикации путей базы данных через HTTP.
 type workspaceBackup struct {
-	db *sql.DB
+	db         *sql.DB
 	storageDir string
 }
 

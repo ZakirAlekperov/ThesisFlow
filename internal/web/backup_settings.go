@@ -102,4 +102,3 @@ func downloadBackup(w http.ResponseWriter, r *http.Request, token string, export
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = io.Copy(w, file)
 }
-
