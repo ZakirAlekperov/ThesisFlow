@@ -53,3 +53,14 @@ go vet ./...
 ## License / Лицензия
 
 MIT. See [LICENSE](LICENSE).
+
+## Group print report / Печатная ведомость группы
+
+EN: Once a group has requirements and documents, open its page and select
+**Печатная ведомость группы**. The read-only report shows students, required,
+accepted, overdue, and completion percent. Use browser Print / Save as PDF.
+
+RU: На странице учебной группы нажмите **«Печатная ведомость группы»**.
+Откроется отчёт с числом студентов, требуемых, принятых, просроченных
+документов и процентом готовности. Для печати или PDF используйте печать
+браузера. Отчёт не изменяет данные SQLite.

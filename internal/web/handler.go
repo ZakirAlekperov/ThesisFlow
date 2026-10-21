@@ -131,6 +131,7 @@ func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token,
 type Dependencies struct {
 	Workbook     WorkbookImporter
 	Requirements RequirementStore
+	Report       ReportProvider
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -170,6 +171,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	if deps.Requirements != nil {
 		mux.HandleFunc("POST /groups/{id}/requirements", func(w http.ResponseWriter, r *http.Request) {
 			createGroupRequirement(w, r, store, deps.Requirements, token)
+		})
+	}
+	if deps.Report != nil {
+		mux.HandleFunc("GET /groups/{id}/report", func(w http.ResponseWriter, r *http.Request) {
+			renderPrintableReport(w, r, store, deps.Report)
 		})
 	}
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {

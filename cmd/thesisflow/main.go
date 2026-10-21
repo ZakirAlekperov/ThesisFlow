@@ -20,6 +20,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
@@ -142,6 +143,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
 		Workbook:     importxlsx.Service{DB: db},
 		Requirements: requirements.NewRepository(db),
+		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 	})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)

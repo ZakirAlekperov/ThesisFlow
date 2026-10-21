@@ -27,3 +27,14 @@ separate integration work.
 редактирование сроков пока не подключены.
 
 Dependencies / Зависимости: PR #20 (review and accepted-file projection).
+
+## Report page / Страница отчёта
+
+EN: The group page links to `GET /groups/{id}/report`. This HTML view is
+print-ready on A4, has no remote assets, and computes metrics live from SQLite.
+It hides storage errors and rejects unknown groups with HTTP 404.
+
+RU: Со страницы группы доступна `GET /groups/{id}/report`. Печатная
+HTML-ведомость рассчитана на A4, не загружает внешние ресурсы и получает
+актуальные показатели из SQLite. Ошибки БД скрыты; неизвестные группы
+возвращают HTTP 404.

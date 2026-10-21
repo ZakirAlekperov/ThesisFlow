@@ -84,6 +84,7 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     <a class="back" href="/">← Все учебные группы</a>
     <h1>{{.Group.Name}}</h1>
     <p class="subtitle">Список студентов учебной группы.</p>
+    <p><a href="/groups/{{.Group.ID}}/report">Печатная ведомость группы</a></p>
     <section class="panel" aria-labelledby="students-heading">
       <h2 id="students-heading">Студенты</h2>
       <form class="student-form" action="/groups/{{.Group.ID}}/students" method="post">
