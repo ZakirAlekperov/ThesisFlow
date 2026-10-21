@@ -166,13 +166,13 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	mux := http.NewServeMux()
 	if deps.Management != nil {
 		mux.HandleFunc("GET /manage", func(w http.ResponseWriter, r *http.Request) {
-			renderManagement(w,r,store,studentStore,deps.Management,token)
+			renderManagement(w, r, store, studentStore, deps.Management, token)
 		})
-		mux.HandleFunc("POST /manage/groups/{id}/{action}",func(w http.ResponseWriter,r *http.Request){
-			applyManagementAction(w,r,deps.Management,token,"groups")
+		mux.HandleFunc("POST /manage/groups/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
+			applyManagementAction(w, r, deps.Management, token, "groups")
 		})
-		mux.HandleFunc("POST /manage/students/{id}/{action}",func(w http.ResponseWriter,r *http.Request){
-			applyManagementAction(w,r,deps.Management,token,"students")
+		mux.HandleFunc("POST /manage/students/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
+			applyManagementAction(w, r, deps.Management, token, "students")
 		})
 	}
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
