@@ -75,6 +75,8 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     <nav class="tabs" aria-label="Разделы приложения">
       <a href="/" aria-current="page">Учебные группы</a>
       <a href="/templates">Шаблоны</a>
+      <a href="/dashboard">Панель преподавателя</a>
+      <a href="/search">Поиск студентов</a>
       <a href="/manage">Управление и архив</a>
     </nav>
     <h1>ThesisFlow</h1>
@@ -164,6 +166,15 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	token := base64.RawURLEncoding.EncodeToString(secret)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /static/{name}", serveLocalAsset)
+	mux.HandleFunc("GET /search", func(w http.ResponseWriter, r *http.Request) {
+		renderStudentSearch(w, r, store, studentStore)
+	})
+	if deps.Report != nil {
+		mux.HandleFunc("GET /dashboard", func(w http.ResponseWriter, r *http.Request) {
+			renderDashboard(w, r, store, deps.Report)
+		})
+	}
 	if deps.Management != nil {
 		mux.HandleFunc("GET /manage", func(w http.ResponseWriter, r *http.Request) {
 			renderManagement(w, r, store, studentStore, deps.Management, token)
