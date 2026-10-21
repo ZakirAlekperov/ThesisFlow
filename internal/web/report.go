@@ -51,7 +51,7 @@ var printReportTemplate = template.Must(template.New("print-report").Parse(`<!do
       .navigation { display: none; }
       .metric { break-inside: avoid; }
     }
-  </style>
+  </style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 </head>
 <body>
   <p class="navigation"><a href="/groups/{{.Metrics.GroupID}}">← К группе</a></p>
