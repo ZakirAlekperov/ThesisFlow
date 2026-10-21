@@ -76,6 +76,7 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
       <a href="/" aria-current="page">Учебные группы</a>
       <a href="/templates">Шаблоны</a>
       <a href="/dashboard">Панель преподавателя</a>
+      <a href="/backup">Резервные копии</a>
       <a href="/search">Поиск студентов</a>
       <a href="/manage">Управление и архив</a>
     </nav>
@@ -144,6 +145,7 @@ type Dependencies struct {
 	Report       ReportProvider
 	Documents    *DocumentServices
 	Management   RecordManager
+	Backup       BackupProvider
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -166,6 +168,17 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	token := base64.RawURLEncoding.EncodeToString(secret)
 
 	mux := http.NewServeMux()
+	if deps.Backup != nil {
+		mux.HandleFunc("GET /backup", func(w http.ResponseWriter,r *http.Request) {
+			renderBackupPage(w,deps.Backup,token,"")
+		})
+		mux.HandleFunc("GET /backup/download",func(w http.ResponseWriter,r *http.Request) {
+			downloadBackup(w,r,deps.Backup)
+		})
+		mux.HandleFunc("POST /backup/restore",func(w http.ResponseWriter,r *http.Request) {
+			restoreBackup(w,r,deps.Backup,token)
+		})
+	}
 	mux.HandleFunc("GET /static/{name}", serveLocalAsset)
 	mux.HandleFunc("GET /search", func(w http.ResponseWriter, r *http.Request) {
 		renderStudentSearch(w, r, store, studentStore)
