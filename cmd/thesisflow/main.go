@@ -144,6 +144,12 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Workbook:     importxlsx.Service{DB: db},
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
+		Documents: &web.DocumentServices{
+			Requirements: requirements.NewRepository(db),
+			Statuses: materials.NewRepository(db),
+			Versions: versions,
+			Reviews: review.NewService(db, versions),
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)
