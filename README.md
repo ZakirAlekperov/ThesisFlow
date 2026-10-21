@@ -79,3 +79,15 @@ macOS ARM64/AMD64, Windows AMD64 и Linux AMD64. Для запуска гото�
 
 Backup instructions / Инструкция по резервному копированию:
 [docs/backup.md](docs/backup.md).
+
+## 0.1.10 candidate / Кандидат в выпуск 0.1.10
+
+**English:** this branch is a release candidate, not a published stable
+release. Run `thesisflow version` to inspect the build. For the detailed
+feature inventory, limitations, manual QA checklist and the review order
+of stacked PRs, see [docs/release-0.1.10.md](docs/release-0.1.10.md).
+
+**Русский:** эта ветка — кандидат в выпуск, а не опубликованная стабильная
+версия. Команда `thesisflow version` показывает номер сборки. Реализованные
+возможности, ограничения, порядок проверки PR и план ручных испытаний описаны
+в [docs/release-0.1.10.md](docs/release-0.1.10.md).

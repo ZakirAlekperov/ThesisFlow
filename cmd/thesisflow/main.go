@@ -175,6 +175,16 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Informational commands run without opening a workspace or HTTP server.
+	// RU: Информационные команды не открывают SQLite и HTTP-сервер.
+	if len(os.Args) == 2 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		if err := writeVersion(os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Backup commands run without launching the HTTP server or browser.
 	// RU: Команды копирования не запускают веб-сервер и браузер.
 	if len(os.Args) > 1 {
