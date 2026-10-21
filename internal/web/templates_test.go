@@ -96,19 +96,25 @@ func TestThesisDocumentsAreRealDOCXFiles(t *testing.T) {
 			t.Fatalf("%s: code=%d type=%q", id, rec.Code, rec.Header().Get("Content-Type"))
 		}
 		z, err := zip.NewReader(bytes.NewReader(rec.Body.Bytes()), int64(rec.Body.Len()))
-		if err != nil { t.Fatalf("%s: not a real DOCX archive: %v", id, err) }
+		if err != nil {
+\t\t\tt.Fatalf("%s: not a real DOCX archive: %v", id, err)
+\t\t}
 		found := false
 		for _, part := range z.File {
 			if part.Name == "word/document.xml" {
 				f, err := part.Open()
-				if err != nil { t.Fatal(err) }
+				if err != nil {
+					t.Fatal(err)
+				}
 				data, err := io.ReadAll(f)
 				f.Close()
 				if err != nil { t.Fatal(err) }
 				found = strings.Contains(string(data), "ТЕСТОВЫЙ")
 			}
 		}
-		if !found { t.Errorf("%s: missing expected Word content", id) }
+		if !found {
+			t.Errorf("%s: missing expected Word content", id)
+		}
 	}
 }
 
