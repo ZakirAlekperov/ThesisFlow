@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/backup"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
@@ -150,6 +151,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Страницы студентов используют то же постоянное соединение SQLite.
 	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
 		Workbook:     importxlsx.Service{DB: db},
+		Backup:       &backup.BrowserService{DB:db,Workspace:filepath.Dir(databasePath)},
 		Management:   management.NewRepository(db),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
