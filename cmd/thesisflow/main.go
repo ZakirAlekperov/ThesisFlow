@@ -16,7 +16,13 @@ import (
 	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
@@ -109,11 +115,42 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	if err := students.NewRepository(db).Init(ctx); err != nil {
 		return fmt.Errorf("initialize students: %w", err)
 	}
+	// Requirements must exist before the HTTP interface is exposed.
+	// RU: Требования к документам создаются до запуска браузера.
+	if err := requirements.NewRepository(db).Init(ctx); err != nil {
+		return fmt.Errorf("initialize document requirements: %w", err)
+	}
+	// Material statuses and immutable event history require requirements.
+	// RU: Статусы и история событий создаются после таблицы требований.
+	if err := materials.NewRepository(db).Init(ctx); err != nil {
+		return fmt.Errorf("initialize material status history: %w", err)
+	}
+	// File versions are stored separately from the human-readable accepted files.
+	// RU: Промежуточные версии хранятся отдельно от принятых документов.
+	versions := fileversions.NewStore(db, filepath.Join(filepath.Dir(databasePath), "storage"))
+	if err := versions.Init(ctx); err != nil {
+		return fmt.Errorf("initialize document versions: %w", err)
+	}
+	// Human-readable accepted documents are indexed separately from uploads.
+	// RU: Принятые файлы индексируются отдельно от всех загруженных версий.
+	if err := review.NewService(db, versions).Init(ctx); err != nil {
+		return fmt.Errorf("initialize accepted document projection: %w", err)
+	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
 	// Student pages use the same persistent SQLite connection.
 	// RU: Страницы студентов используют то же постоянное соединение SQLite.
-	handler, err := web.NewHandler(repo, students.NewRepository(db))
+	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
+		Workbook:     importxlsx.Service{DB: db},
+		Requirements: requirements.NewRepository(db),
+		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
+		Documents: &web.DocumentServices{
+			Requirements: requirements.NewRepository(db),
+			Statuses:     materials.NewRepository(db),
+			Versions:     versions,
+			Reviews:      review.NewService(db, versions),
+		},
+	})
 	if err != nil {
 		return fmt.Errorf("initialize HTTP interface: %w", err)
 	}
@@ -137,6 +174,30 @@ func launch(ctx context.Context, output io.Writer, openBrowser func(string) erro
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Informational commands run without opening a workspace or HTTP server.
+	// RU: Информационные команды не открывают SQLite и HTTP-сервер.
+	if len(os.Args) == 2 && (os.Args[1] == "version" || os.Args[1] == "--version") {
+		if err := writeVersion(os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Backup commands run without launching the HTTP server or browser.
+	// RU: Команды копирования не запускают веб-сервер и браузер.
+	if len(os.Args) > 1 {
+		configDir, err := os.UserConfigDir()
+		if err == nil {
+			err = runBackupCommand(ctx, filepath.Join(configDir, "ThesisFlow"), os.Args[1:], os.Stdout)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if err := launch(ctx, os.Stdout, browser.Open); err != nil {
 		fmt.Fprintln(os.Stderr, err)

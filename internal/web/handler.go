@@ -125,7 +125,29 @@ func renderHome(w http.ResponseWriter, r *http.Request, store GroupStore, token,
 // RU: NewHandler создаёт локальный интерфейс с отдельным хранилищем студентов
 // и случайным CSRF-токеном на время работы приложения. При недоступности
 // безопасной случайности защищённый обработчик не создаётся.
-func NewHandler(store GroupStore, studentStore StudentStore) (http.Handler, error) {
+// Dependencies collects optional local features without forcing callers to
+// install external services or change previously supported forms.
+// RU: Dependencies объединяет необязательные локальные возможности.
+type Dependencies struct {
+	Workbook     WorkbookImporter
+	Requirements RequirementStore
+	Report       ReportProvider
+	Documents    *DocumentServices
+}
+
+// NewHandler preserves the minimal constructor used by existing tests.
+// RU: NewHandler сохраняет простой конструктор для существующих тестов.
+func NewHandler(store GroupStore, studentStore StudentStore, importers ...WorkbookImporter) (http.Handler, error) {
+	var deps Dependencies
+	if len(importers) > 0 {
+		deps.Workbook = importers[0]
+	}
+	return NewHandlerWithServices(store, studentStore, deps)
+}
+
+// NewHandlerWithServices adds document requirements to the existing app.
+// RU: NewHandlerWithServices подключает требования к основному интерфейсу.
+func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps Dependencies) (http.Handler, error) {
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return nil, fmt.Errorf("create form protection token: %w", err)
@@ -137,11 +159,48 @@ func NewHandler(store GroupStore, studentStore StudentStore) (http.Handler, erro
 		renderHome(w, r, store, token, "", "", http.StatusOK)
 	})
 	mux.HandleFunc("GET /groups/{id}", func(w http.ResponseWriter, r *http.Request) {
-		renderGroupStudents(w, r, store, studentStore, token, "", "", "", http.StatusOK)
+		renderGroupStudents(w, r, store, studentStore, token, "", "", "", http.StatusOK, deps.Requirements)
 	})
 	mux.HandleFunc("POST /groups/{id}/students", func(w http.ResponseWriter, r *http.Request) {
-		createStudentFromForm(w, r, store, studentStore, token)
+		createStudentFromForm(w, r, store, studentStore, token, deps.Requirements)
 	})
+	if deps.Workbook != nil {
+		mux.HandleFunc("POST /groups/{id}/import", func(w http.ResponseWriter, r *http.Request) {
+			importStudentsFromWorkbook(w, r, store, deps.Workbook, token)
+		})
+	}
+	if deps.Requirements != nil {
+		mux.HandleFunc("POST /groups/{id}/requirements", func(w http.ResponseWriter, r *http.Request) {
+			createGroupRequirement(w, r, store, deps.Requirements, token)
+		})
+	}
+	if deps.Report != nil {
+		mux.HandleFunc("GET /groups/{id}/report", func(w http.ResponseWriter, r *http.Request) {
+			renderPrintableReport(w, r, store, deps.Report)
+		})
+	}
+	if deps.Documents != nil {
+		mux.HandleFunc("GET /groups/{id}/students/{student}", func(w http.ResponseWriter, r *http.Request) {
+			renderDocuments(w, r, store, studentStore, deps.Documents, token)
+		})
+		for _, operation := range []string{"upload", "accept", "reject", "download"} {
+			action := operation
+			switch action {
+			case "upload":
+				mux.HandleFunc("POST /groups/{id}/students/{student}/documents/{requirement}/upload", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			case "download":
+				mux.HandleFunc("GET /groups/{id}/students/{student}/documents/{requirement}/versions/{version}/download", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			default:
+				mux.HandleFunc("POST /groups/{id}/students/{student}/documents/{requirement}/"+action+"/{version}", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			}
+		}
+	}
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {
 		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil || mediaType != "application/x-www-form-urlencoded" {

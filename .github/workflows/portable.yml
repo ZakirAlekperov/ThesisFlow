@@ -1,0 +1,63 @@
+# Compile distributable, CGO-free ThesisFlow binaries.
+# Сборка переносимых двоичных файлов ThesisFlow без CGO.
+name: Portable builds
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: windows
+            goarch: amd64
+          - goos: linux
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build and package
+        id: package
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          binary=thesisflow
+          if [ "$GOOS" = windows ]; then binary=thesisflow.exe; fi
+          go build -trimpath -ldflags="-s -w" -o "dist/$binary" ./cmd/thesisflow
+          cp README.md LICENSE dist/
+          package="thesisflow-$GOOS-$GOARCH"
+          if [ "$GOOS" = windows ]; then
+            (cd dist && zip -q "../$package.zip" "$binary" README.md LICENSE)
+            echo "archive=$package.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -czf "$package.tar.gz" -C dist "$binary" README.md LICENSE
+            echo "archive=$package.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: thesisflow-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
