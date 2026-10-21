@@ -42,11 +42,12 @@ type documentPage struct {
 	CSRFToken string
 	Documents []documentItem
 	ThesisTopic string
+	CanEditTopic bool
 	OrderRef string
 }
 
 var documentTemplate = template.Must(template.New("documents").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Материалы ВКР — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;max-width:850px;margin:35px auto;padding:0 16px;color:#202939;background:#f6f7fb}.panel{background:white;padding:20px;margin:16px 0;border:1px solid #ddd;border-radius:12px}label{display:block;margin:8px 0}button{margin:8px;padding:9px 15px;border:0;border-radius:6px;background:#214eaf;color:white}a{color:#214eaf}</style></head><body><a href="/groups/{{.GroupID}}">← К учебной группе</a><h1>Материалы ВКР: {{.FullName}}</h1>
-{{if .CSRFToken}}<section class="panel"><h2>Тема ВКР и приказ</h2><p>Тема ВКР: {{if .ThesisTopic}}{{.ThesisTopic}}{{else}}ещё не утверждена{{end}}</p><p>Приказ: {{.OrderRef}}</p>
+{{if .CanEditTopic}}<section class="panel"><h2>Тема ВКР и приказ</h2><p>Тема ВКР: {{if .ThesisTopic}}{{.ThesisTopic}}{{else}}ещё не утверждена{{end}}</p><p>Приказ: {{.OrderRef}}</p>
 <form method="post" action="/groups/{{.GroupID}}/students/{{.StudentID}}/topic">
 <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 <label>Утверждённая тема <input name="topic" value="{{.ThesisTopic}}" required></label>
@@ -142,6 +143,7 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		record, err := docs.Thesis.Get(r.Context(), studentID)
 		if err != nil { documentError(w, r, err); return }
 		data.ThesisTopic = record.Topic
+		data.CanEditTopic = true
 		data.OrderRef = record.OrderReference
 	}
 	for _, requirement := range requirementsList {
