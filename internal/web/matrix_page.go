@@ -18,9 +18,22 @@ type MatrixProvider interface {
 	Group(context.Context, int64) (statusmatrix.Matrix, error)
 }
 
-type matrixCellView struct { Label string; Key materials.Status }
-type matrixRowView struct { ID int64; Name string; EducationalID string; Cells []matrixCellView }
-type matrixPageData struct { GroupID int64; GroupName string; Columns []string; Rows []matrixRowView }
+type matrixCellView struct {
+	Label string
+	Key   materials.Status
+}
+type matrixRowView struct {
+	ID            int64
+	Name          string
+	EducationalID string
+	Cells         []matrixCellView
+}
+type matrixPageData struct {
+	GroupID   int64
+	GroupName string
+	Columns   []string
+	Rows      []matrixRowView
+}
 
 // matrixTemplate uses Go html/template, custom CSS and no external frontend.
 // RU: matrixTemplate использует стандартный шаблонизатор Go и собственный CSS.
@@ -48,10 +61,14 @@ thead{background:var(--surface-secondary,#eef3f9)}th:first-child{position:sticky
 // RU: materialLabel преобразует ключи статусов для пользовательской таблицы.
 func materialLabel(status materials.Status) string {
 	switch status {
-	case materials.Accepted: return "Принят"
-	case materials.UnderReview: return "На проверке"
-	case materials.NeedsRevision: return "На доработке"
-	default: return "Не сдан"
+	case materials.Accepted:
+		return "Принят"
+	case materials.UnderReview:
+		return "На проверке"
+	case materials.NeedsRevision:
+		return "На доработке"
+	default:
+		return "Не сдан"
 	}
 }
 
@@ -62,26 +79,44 @@ func materialLabel(status materials.Status) string {
 // Неизвестная группа даёт 404, подробности ошибок базы скрываются.
 func renderGroupMatrix(w http.ResponseWriter, r *http.Request, groupsStore GroupStore, provider MatrixProvider) {
 	id, err := parseGroupPathID(r)
-	if err!=nil { http.NotFound(w,r); return }
-	group,err:=findGroup(r.Context(),groupsStore,id)
-	if err!=nil {
-		if errors.Is(err,students.ErrGroupNotFound){http.NotFound(w,r)}else{http.Error(w,"Не удалось открыть группу.",http.StatusInternalServerError)}
+	if err != nil {
+		http.NotFound(w, r)
 		return
 	}
-	matrix,err:=provider.Group(r.Context(),id)
-	if err!=nil {
-		if errors.Is(err,students.ErrGroupNotFound){http.NotFound(w,r)}else{http.Error(w,"Не удалось сформировать ведомость.",http.StatusInternalServerError)}
+	group, err := findGroup(r.Context(), groupsStore, id)
+	if err != nil {
+		if errors.Is(err, students.ErrGroupNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Не удалось открыть группу.", http.StatusInternalServerError)
+		}
 		return
 	}
-	page:=matrixPageData{GroupID:id,GroupName:group.Name,Rows:make([]matrixRowView,0,len(matrix.Rows))}
-	for _,rule:=range matrix.Requirements {page.Columns=append(page.Columns,rule.Title)}
-	for _,row:=range matrix.Rows {
-		item:=matrixRowView{ID:row.Student.ID,Name:row.Student.FullName,EducationalID:row.Student.EducationalID}
-		for _,cell:=range row.Cells {item.Cells=append(item.Cells,matrixCellView{Label:materialLabel(cell.Status),Key:cell.Status})}
-		page.Rows=append(page.Rows,item)
+	matrix, err := provider.Group(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, students.ErrGroupNotFound) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Не удалось сформировать ведомость.", http.StatusInternalServerError)
+		}
+		return
+	}
+	page := matrixPageData{GroupID: id, GroupName: group.Name, Rows: make([]matrixRowView, 0, len(matrix.Rows))}
+	for _, rule := range matrix.Requirements {
+		page.Columns = append(page.Columns, rule.Title)
+	}
+	for _, row := range matrix.Rows {
+		item := matrixRowView{ID: row.Student.ID, Name: row.Student.FullName, EducationalID: row.Student.EducationalID}
+		for _, cell := range row.Cells {
+			item.Cells = append(item.Cells, matrixCellView{Label: materialLabel(cell.Status), Key: cell.Status})
+		}
+		page.Rows = append(page.Rows, item)
 	}
 	var out bytes.Buffer
-	if err:=matrixTemplate.Execute(&out,page);err!=nil {http.Error(w,"Не удалось отобразить ведомость.",http.StatusInternalServerError);return}
-	w.Header().Set("Content-Type","text/html; charset=utf-8")
-	_,_=w.Write(out.Bytes())
+	if err := matrixTemplate.Execute(&out, page); err != nil {
+		http.Error(w, "Не удалось отобразить ведомость.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(out.Bytes())
 }

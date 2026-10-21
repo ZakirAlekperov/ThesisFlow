@@ -15,14 +15,14 @@ import (
 // RU: Cell хранит статус обязательного документа одного студента.
 type Cell struct {
 	RequirementID int64
-	Status materials.Status
+	Status        materials.Status
 }
 
 // Row groups one student's statuses without changing stored records.
 // RU: Row содержит студента и статусы его документов без изменений SQLite.
 type Row struct {
 	Student students.Student
-	Cells []Cell
+	Cells   []Cell
 }
 
 // Matrix is a complete group-wide requirement grid in stable database order.
@@ -32,17 +32,17 @@ type Row struct {
 // RU: Matrix — ведомость общих требований учебной группы.
 // Индивидуальные требования остаются на странице конкретного студента.
 type Matrix struct {
-	GroupID int64
+	GroupID      int64
 	Requirements []requirements.Requirement
-	Rows []Row
+	Rows         []Row
 }
 
 // Service composes the already-tested student, requirement and status readers.
 // RU: Service использует действующие репозитории студентов, требований и статусов.
 type Service struct {
-	Students *students.Repository
+	Students     *students.Repository
 	Requirements *requirements.Repository
-	Materials *materials.Repository
+	Materials    *materials.Repository
 }
 
 // New creates the read-only matrix service without adding SQLite tables.
@@ -60,18 +60,24 @@ func New(st *students.Repository, req *requirements.Repository, mat *materials.R
 // передаются без выдачи неполной ведомости.
 func (s *Service) Group(ctx context.Context, groupID int64) (Matrix, error) {
 	people, err := s.Students.ListByGroup(ctx, groupID)
-	if err != nil { return Matrix{}, fmt.Errorf("list matrix students: %w", err) }
+	if err != nil {
+		return Matrix{}, fmt.Errorf("list matrix students: %w", err)
+	}
 	required, err := s.Requirements.ListForGroup(ctx, groupID)
-	if err != nil { return Matrix{}, fmt.Errorf("list matrix requirements: %w", err) }
-	result := Matrix{GroupID:groupID, Requirements:required, Rows:make([]Row,0,len(people))}
+	if err != nil {
+		return Matrix{}, fmt.Errorf("list matrix requirements: %w", err)
+	}
+	result := Matrix{GroupID: groupID, Requirements: required, Rows: make([]Row, 0, len(people))}
 	for _, person := range people {
-		row := Row{Student:person, Cells:make([]Cell,0,len(required))}
+		row := Row{Student: person, Cells: make([]Cell, 0, len(required))}
 		for _, rule := range required {
 			entry, err := s.Materials.Get(ctx, person.ID, rule.ID)
-			if err != nil { return Matrix{}, fmt.Errorf("read matrix status: %w", err) }
-			row.Cells = append(row.Cells, Cell{RequirementID:rule.ID,Status:entry.Status})
+			if err != nil {
+				return Matrix{}, fmt.Errorf("read matrix status: %w", err)
+			}
+			row.Cells = append(row.Cells, Cell{RequirementID: rule.ID, Status: entry.Status})
 		}
-		result.Rows = append(result.Rows,row)
+		result.Rows = append(result.Rows, row)
 	}
-	return result,nil
+	return result, nil
 }

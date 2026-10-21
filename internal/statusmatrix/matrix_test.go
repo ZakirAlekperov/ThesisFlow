@@ -20,30 +20,50 @@ import (
 func TestBuildCombinesStudentsAndGroupRequirements(t *testing.T) {
 	ctx := context.Background()
 	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "test.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 	gr := groups.NewRepository(db)
 	st := students.NewRepository(db)
 	req := requirements.NewRepository(db)
 	mat := materials.NewRepository(db)
 	for _, init := range []func(context.Context) error{gr.Init, st.Init, req.Init, mat.Init} {
-		if err := init(ctx); err != nil { t.Fatal(err) }
+		if err := init(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	group, err := gr.Create(ctx, "ИСП-401")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	first, err := st.Create(ctx, group.ID, "TF-001", "Алексеев Алексей")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	second, err := st.Create(ctx, group.ID, "TF-002", "Иванов Иван")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	chapter, err := req.Create(ctx, group.ID, 0, "Глава 1", "")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	title, err := req.Create(ctx, group.ID, 0, "Титульный лист", "")
-	if err != nil { t.Fatal(err) }
-	if _, err := mat.Set(ctx, first.ID, chapter.ID, materials.Accepted); err != nil { t.Fatal(err) }
-	if _, err := mat.Set(ctx, second.ID, title.ID, materials.UnderReview); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mat.Set(ctx, first.ID, chapter.ID, materials.Accepted); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := mat.Set(ctx, second.ID, title.ID, materials.UnderReview); err != nil {
+		t.Fatal(err)
+	}
 
 	matrix, err := New(st, req, mat).Group(ctx, group.ID)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if matrix.GroupID != group.ID || len(matrix.Requirements) != 2 || len(matrix.Rows) != 2 {
 		t.Fatalf("unexpected matrix dimensions: %+v", matrix)
 	}
@@ -52,7 +72,9 @@ func TestBuildCombinesStudentsAndGroupRequirements(t *testing.T) {
 	}
 	byID := func(row Row, id int64) materials.Status {
 		for _, cell := range row.Cells {
-			if cell.RequirementID == id { return cell.Status }
+			if cell.RequirementID == id {
+				return cell.Status
+			}
 		}
 		return "unknown"
 	}
@@ -69,20 +91,30 @@ func TestBuildCombinesStudentsAndGroupRequirements(t *testing.T) {
 func TestBuildEmptyGroupGivesEmptyRows(t *testing.T) {
 	ctx := context.Background()
 	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "test.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 	gr := groups.NewRepository(db)
 	st := students.NewRepository(db)
 	req := requirements.NewRepository(db)
 	mat := materials.NewRepository(db)
 	for _, init := range []func(context.Context) error{gr.Init, st.Init, req.Init, mat.Init} {
-		if err := init(ctx); err != nil { t.Fatal(err) }
+		if err := init(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	group, err := gr.Create(ctx, "ИСП-401")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	got, err := New(st, req, mat).Group(ctx, group.ID)
-	if err != nil { t.Fatal(err) }
-	if got.Rows == nil || len(got.Rows) != 0 { t.Errorf("rows=%#v, want empty non-nil slice", got.Rows) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Rows == nil || len(got.Rows) != 0 {
+		t.Errorf("rows=%#v, want empty non-nil slice", got.Rows)
+	}
 }
 
 // TestBuildRejectsUnknownGroup preserves explicit missing-group diagnostics.
@@ -90,14 +122,18 @@ func TestBuildEmptyGroupGivesEmptyRows(t *testing.T) {
 func TestBuildRejectsUnknownGroup(t *testing.T) {
 	ctx := context.Background()
 	db, err := sqlite.Open(ctx, filepath.Join(t.TempDir(), "test.sqlite"))
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 	gr := groups.NewRepository(db)
 	st := students.NewRepository(db)
 	req := requirements.NewRepository(db)
 	mat := materials.NewRepository(db)
 	for _, init := range []func(context.Context) error{gr.Init, st.Init, req.Init, mat.Init} {
-		if err := init(ctx); err != nil { t.Fatal(err) }
+		if err := init(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if _, err := New(st, req, mat).Group(ctx, 999); !errors.Is(err, students.ErrGroupNotFound) {
 		t.Errorf("error=%v, want ErrGroupNotFound", err)
