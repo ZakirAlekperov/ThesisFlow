@@ -132,6 +132,7 @@ type Dependencies struct {
 	Workbook     WorkbookImporter
 	Requirements RequirementStore
 	Report       ReportProvider
+	Documents    *DocumentServices
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -177,6 +178,28 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		mux.HandleFunc("GET /groups/{id}/report", func(w http.ResponseWriter, r *http.Request) {
 			renderPrintableReport(w, r, store, deps.Report)
 		})
+	}
+	if deps.Documents != nil {
+		mux.HandleFunc("GET /groups/{id}/students/{student}", func(w http.ResponseWriter, r *http.Request) {
+			renderDocuments(w, r, store, studentStore, deps.Documents, token)
+		})
+		for _, operation := range []string{"upload", "accept", "reject", "download"} {
+			action := operation
+			switch action {
+			case "upload":
+				mux.HandleFunc("POST /groups/{id}/students/{student}/documents/{requirement}/upload", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			case "download":
+				mux.HandleFunc("GET /groups/{id}/students/{student}/documents/{requirement}/versions/{version}/download", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			default:
+				mux.HandleFunc("POST /groups/{id}/students/{student}/documents/{requirement}/"+action+"/{version}", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			}
+		}
 	}
 	mux.HandleFunc("POST /groups", func(w http.ResponseWriter, r *http.Request) {
 		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
