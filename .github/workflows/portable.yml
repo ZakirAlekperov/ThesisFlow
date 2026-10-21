@@ -70,6 +70,26 @@ jobs:
             dpkg-deb --build debroot "$package.deb"
             echo "archive=$package.tar.gz" >> "$GITHUB_OUTPUT"
           fi
+      - name: Verify package contents
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          package="thesisflow-$GOOS-$GOARCH"
+          if [ "$GOOS" = windows ]; then
+            unzip -t "$package.zip"
+            unzip -Z -1 "$package.zip" | grep -qx 'install.ps1'
+            unzip -Z -1 "$package.zip" | grep -qx 'uninstall.ps1'
+          elif [ "$GOOS" = darwin ]; then
+            unzip -t "$package-app.zip"
+            unzip -Z -1 "$package-app.zip" | grep -qx 'ThesisFlow.app/Contents/Info.plist'
+            unzip -Z -1 "$package-app.zip" | grep -qx 'ThesisFlow.app/Contents/MacOS/thesisflow'
+          else
+            dpkg-deb --info "$package.deb"
+            dpkg-deb --contents "$package.deb" | grep -q 'usr/local/bin/thesisflow'
+          fi
       - name: Save portable build
         uses: actions/upload-artifact@v4
         with:
