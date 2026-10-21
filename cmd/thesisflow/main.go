@@ -27,6 +27,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
 
@@ -157,6 +158,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 			Statuses:     materials.NewRepository(db),
 			Versions:     versions,
 			Reviews:      review.NewService(db, versions),
+			Thesis:       thesis.NewRepository(db),
 		},
 	})
 	if err != nil {
