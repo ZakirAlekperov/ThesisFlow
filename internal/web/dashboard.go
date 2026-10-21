@@ -43,12 +43,12 @@ type dashboardGroup struct {
 }
 
 type dashboardData struct {
-	Groups []dashboardGroup
+	Groups        []dashboardGroup
 	TotalStudents int
-	Required int
-	Accepted int
-	Overdue int
-	Percent int
+	Required      int
+	Accepted      int
+	Overdue       int
+	Percent       int
 }
 
 var dashboardTemplate = template.Must(template.New("dashboard").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Панель преподавателя — ThesisFlow</title>
@@ -106,11 +106,11 @@ func renderDashboard(w http.ResponseWriter, r *http.Request, store GroupStore, r
 
 type matchedStudent struct {
 	Student students.Student
-	Group groups.Group
+	Group   groups.Group
 }
 
 type searchData struct {
-	Query string
+	Query   string
 	Results []matchedStudent
 }
 
@@ -164,4 +164,3 @@ func renderStudentSearch(w http.ResponseWriter, r *http.Request, groupsStore Gro
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(output.Bytes())
 }
-
