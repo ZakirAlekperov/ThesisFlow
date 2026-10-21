@@ -41,7 +41,14 @@ var settingsTemplate = template.Must(template.New("settings").Parse(`<!doctype h
 <form method="post" action="/settings/backup">
 <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 <button type="submit">Скачать резервную копию</button></form>
-<p>Восстановление выполняется в отдельную папку через команду backup restore, чтобы не перезаписать действующие данные.</p>
+<h2>Восстановление из ZIP</h2>
+<p>Система проверит архив и создаст отдельный каталог. Рабочая база не будет заменена.</p>
+<form method="post" action="/settings/restore" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+<label for="restore-zip">Файл ZIP</label>
+<input id="restore-zip" type="file" name="archive" accept=".zip" required>
+<button type="submit">Восстановить в новую папку</button>
+</form>
 </section></body></html>`))
 
 // renderSettings serves a no-cache CSRF-protected settings page.
