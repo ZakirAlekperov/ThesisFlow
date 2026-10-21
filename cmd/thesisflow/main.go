@@ -25,6 +25,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/statusmatrix"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
@@ -152,6 +153,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Workbook:     importxlsx.Service{DB: db},
 		Management:   management.NewRepository(db),
 		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
+		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
