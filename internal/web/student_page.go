@@ -79,7 +79,7 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     .student-name { font-weight: 600; overflow-wrap: anywhere; }
     .student-id, .empty { color: #687488; }
     .empty { line-height: 1.6; }
-  </style>
+  </style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 </head>
 <body>
   <main>
