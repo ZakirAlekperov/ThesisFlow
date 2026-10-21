@@ -151,6 +151,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
 		Workbook:     importxlsx.Service{DB: db},
 		Management:   management.NewRepository(db),
+		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
