@@ -23,6 +23,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/schema"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
@@ -103,6 +104,11 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		return fmt.Errorf("initialize local database: %w", err)
 	}
 	defer db.Close()
+	// Reject unsupported schema versions before initializing domain tables.
+	// RU: Проверяем совместимость схемы до изменения таблиц приложения.
+	if err := schema.Initialize(ctx, db); err != nil {
+		return fmt.Errorf("initialize schema version: %w", err)
+	}
 
 	// Create the group schema before allowing the UI to accept requests.
 	// RU: Таблица групп создаётся до запуска пользовательского интерфейса.
