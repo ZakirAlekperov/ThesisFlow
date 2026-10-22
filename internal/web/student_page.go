@@ -29,14 +29,14 @@ type StudentStore interface {
 // groupStudentsData supplies the escaped group detail HTML template.
 // RU: groupStudentsData передаёт данные в безопасный шаблон страницы группы.
 type groupStudentsData struct {
-	Group         groups.Group
-	Students      []students.Student
-	Requirements  []requirements.Requirement
+	Group               groups.Group
+	Students            []students.Student
+	Requirements        []requirements.Requirement
 	CanEditRequirements bool
-	CSRFToken     string
-	FullName      string
-	EducationalID string
-	Error         string
+	CSRFToken           string
+	FullName            string
+	EducationalID       string
+	Error               string
 }
 
 // groupStudentsTemplate renders the student form and list without JavaScript.
@@ -245,7 +245,7 @@ func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore Grou
 	if err := groupStudentsTemplate.Execute(&rendered, groupStudentsData{
 		Group: group, Students: items, Requirements: required, CSRFToken: token,
 		CanEditRequirements: canEdit,
-		FullName: name, EducationalID: educationalID, Error: message,
+		FullName:            name, EducationalID: educationalID, Error: message,
 	}); err != nil {
 		http.Error(w, "Не удалось отобразить страницу группы.", http.StatusInternalServerError)
 		return
