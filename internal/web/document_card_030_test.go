@@ -70,7 +70,7 @@ func TestThesisWorkspaceReflectsRealStatuses(t *testing.T) {
     h.ServeHTTP(rec, approve)
     if rec.Code != http.StatusSeeOther { t.Fatalf("accept = %d: %s", rec.Code, rec.Body.String()) }
     entry, err := statuses.Get(context.Background(), studentID, requirementID)
-    if err != nil || string(entry.Status) != "Accepted" { t.Fatalf("stored approval: %+v %v", entry, err) }
+    if err != nil || string(entry.Status) != "accepted" { t.Fatalf("stored approval: %+v %v", entry, err) }
     rec = httptest.NewRecorder()
     h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, page, nil))
     if !strings.Contains(rec.Body.String(), "1 из 1 принято") { t.Errorf("accepted counter not updated: %s", rec.Body.String()) }
