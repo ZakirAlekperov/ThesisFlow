@@ -11,7 +11,7 @@ import (
 
 // CurrentVersion is the highest SQLite user_version understood by this build.
 // RU: CurrentVersion — последняя версия схемы, поддерживаемая приложением.
-const CurrentVersion = 1
+const CurrentVersion = 2
 
 // ErrFutureVersion prevents opening a database made by a newer application.
 // RU: ErrFutureVersion защищает базы, созданные более новой версией.
@@ -67,6 +67,73 @@ func Apply(ctx context.Context, db *sql.DB) error {
 		for _, statement := range statements {
 			if _, err := tx.ExecContext(ctx, statement); err != nil {
 				return fmt.Errorf("apply SQLite migration to version 1: %w", err)
+			}
+		}
+	}
+	// Version 2 adds teacher-managed configuration only. Current requirements
+	// and material events remain the single source of truth for submissions.
+	// RU: Миграция создаёт профили/сроки/шаблоны, не меняя историю ВКР.
+	if version < 2 {
+		statements := []string{
+			`CREATE TABLE IF NOT EXISTS requirement_profiles (
+				id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,
+				description TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now'))
+			)`,
+			`CREATE TABLE IF NOT EXISTS profile_revisions (
+				id INTEGER PRIMARY KEY, profile_id INTEGER NOT NULL REFERENCES requirement_profiles(id),
+				number INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				UNIQUE(profile_id, number)
+			)`,
+			`CREATE TABLE IF NOT EXISTS profile_items (
+				revision_id INTEGER NOT NULL REFERENCES profile_revisions(id),
+				item_key TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+				position INTEGER NOT NULL CHECK(position >= 0),
+				PRIMARY KEY(revision_id,item_key), UNIQUE(revision_id,position)
+			)`,
+			`CREATE TABLE IF NOT EXISTS group_profile_bindings (
+				group_id INTEGER NOT NULL REFERENCES student_groups(id),
+				profile_id INTEGER NOT NULL REFERENCES requirement_profiles(id),
+				item_key TEXT NOT NULL, requirement_id INTEGER NOT NULL REFERENCES requirements(id),
+				PRIMARY KEY(group_id,profile_id,item_key),
+				UNIQUE(group_id,requirement_id)
+			)`,
+			`CREATE TABLE IF NOT EXISTS group_profile_state (
+				group_id INTEGER PRIMARY KEY REFERENCES student_groups(id),
+				profile_id INTEGER NOT NULL REFERENCES requirement_profiles(id),
+				revision_id INTEGER NOT NULL REFERENCES profile_revisions(id),
+				applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+			)`,
+			`CREATE TABLE IF NOT EXISTS due_overrides (
+				student_id INTEGER NOT NULL REFERENCES students(id),
+				requirement_id INTEGER NOT NULL REFERENCES requirements(id),
+				kind TEXT NOT NULL CHECK(kind IN ('date','none')),
+				due_date TEXT NOT NULL DEFAULT '',
+				PRIMARY KEY(student_id,requirement_id)
+			)`,
+			`CREATE TABLE IF NOT EXISTS requirement_changes (
+				id INTEGER PRIMARY KEY, group_id INTEGER NOT NULL REFERENCES student_groups(id),
+				requirement_id INTEGER NOT NULL REFERENCES requirements(id),
+				student_id INTEGER REFERENCES students(id),
+				old_value TEXT NOT NULL, new_value TEXT NOT NULL,
+				kind TEXT NOT NULL, actor TEXT NOT NULL DEFAULT 'local-teacher',
+				changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+			)`,
+			`CREATE TABLE IF NOT EXISTS template_assets (
+				id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+				requirement_title TEXT NOT NULL DEFAULT '', current_version INTEGER NOT NULL DEFAULT 0
+			)`,
+			`CREATE TABLE IF NOT EXISTS template_versions (
+				id INTEGER PRIMARY KEY, asset_id INTEGER NOT NULL REFERENCES template_assets(id),
+				number INTEGER NOT NULL, filename TEXT NOT NULL, relative_path TEXT NOT NULL UNIQUE,
+				size INTEGER NOT NULL, sha256 TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				UNIQUE(asset_id,number)
+			)`,
+			"PRAGMA user_version = 2",
+		}
+		for _, statement := range statements {
+			if _, err := tx.ExecContext(ctx, statement); err != nil {
+				return fmt.Errorf("apply SQLite migration to version 2: %w", err)
 			}
 		}
 	}
