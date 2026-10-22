@@ -24,6 +24,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/reviewqueue"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/statusmatrix"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
@@ -155,6 +156,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
 		Restore:      workspaceRestore{root: filepath.Join(filepath.Dir(databasePath), "restores")},
 		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
+		ReviewQueue: reviewqueue.New(db),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
