@@ -132,6 +132,14 @@ func documentScope(r *http.Request, groups GroupStore, people StudentStore, docs
 }
 
 func documentError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, review.ErrPendingApproval) {
+		http.Error(w, "Предыдущая операция принятия документа не завершена. Закройте и снова запустите ThesisFlow, чтобы выполнить проверяемое восстановление. Если ошибка повторится, проверьте состояние хранилища.", http.StatusConflict)
+		return
+	}
+	if errors.Is(err, review.ErrRecoveryConflict) {
+		http.Error(w, "Принятый файл изменён вне ThesisFlow или восстановление обнаружило несовпадение. Документ не перезаписан. Проверьте сохранность файлов и состояние хранилища.", http.StatusConflict)
+		return
+	}
 	if errors.Is(err, students.ErrGroupNotFound) || errors.Is(err, requirements.ErrInvalidScope) || errors.Is(err, fileversions.ErrInvalidScope) || errors.Is(err, review.ErrInvalidVersion) {
 		http.NotFound(w, r)
 		return
