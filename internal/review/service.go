@@ -358,7 +358,17 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 		return Accepted{}, fmt.Errorf("%w: confirm latest revision: %v", ErrPendingApproval, err)
 	}
 	if committedLatest != versionID {
-		return Accepted{}, ErrPendingApproval
+		// A concurrently committed upload won the race. Roll back the
+		// transaction, undo our file publication via the durable journal,
+		// and report an ordinary stale-version conflict to the UI.
+		// RU: При гонке не оставляем принятый каталог в промежуточном виде.
+		if err := tx.Rollback(); err != nil {
+			return Accepted{}, ErrPendingApproval
+		}
+		if err := s.resolveIntent(ctx, op); err != nil {
+			return Accepted{}, fmt.Errorf("%w: cleanup raced approval: %v", ErrPendingApproval, err)
+		}
+		return Accepted{}, ErrStaleReview
 	}
 	now := s.Clock().UTC().Format(time.RFC3339Nano)
 	_, err = tx.ExecContext(ctx, `INSERT INTO accepted_files(
