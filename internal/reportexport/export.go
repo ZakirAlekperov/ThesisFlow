@@ -17,19 +17,20 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
 )
 
-// Sheet is a simple typed row-based workbook tab; all values are literal
-// strings, never spreadsheet formulas.
-// RU: Sheet содержит текстовые данные; формулы не исполняются.
+// Sheet is a report tab. NumericColumns marks only trusted generated metric
+// cells as numbers; all user-controlled values remain literal text.
+// RU: Только вычисленные показатели — числа, ввод пользователя — строки.
 type Sheet struct {
-	Name    string
-	Headers []string
-	Rows    [][]string
+	Name           string
+	Headers        []string
+	Rows           [][]string
+	NumericColumns map[int]bool
 }
 
 // Sheets constructs three consistently filtered views of one report.
 // RU: Одинаковые фильтры используются для экрана и всех листов Excel.
 func Sheets(r analytics.Report) []Sheet {
-	summary := Sheet{Name: "Сводка", Headers: []string{"Учебная группа", "Студентов", "Всего требований", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Есть принятая копия", "Готовность"}}
+	summary := Sheet{Name: "Сводка", NumericColumns: map[int]bool{1:true,2:true,3:true,4:true,5:true,6:true,7:true,8:true}, Headers: []string{"Учебная группа", "Студентов", "Всего требований", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Есть принятая копия", "Готовность"}}
 	for _, g := range r.Groups {
 		p, valid := g.Metrics.Percent()
 		summary.Rows = append(summary.Rows, []string{g.Name, fmt.Sprint(g.Students), fmt.Sprint(g.Required),
@@ -41,7 +42,7 @@ func Sheets(r analytics.Report) []Sheet {
 	summary.Rows = append(summary.Rows, []string{"ИТОГО", fmt.Sprint(totals.Students), fmt.Sprint(totals.Required),
 		fmt.Sprint(totals.Accepted), fmt.Sprint(totals.UnderReview), fmt.Sprint(totals.NeedsRevision),
 		fmt.Sprint(totals.Missing), fmt.Sprint(totals.Overdue), fmt.Sprint(totals.WithApprovedCopy), percent(p, ok)})
-	students := Sheet{Name: "Студенты", Headers: []string{"Группа", "ФИО", "Учебный ID", "Всего", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Готовность", "Ближайший срок"}}
+	students := Sheet{Name: "Студенты", NumericColumns: map[int]bool{3:true,4:true,5:true,6:true,7:true,8:true}, Headers: []string{"Группа", "ФИО", "Учебный ID", "Всего", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Готовность", "Ближайший срок"}}
 	for _, s := range r.Students {
 		p, ok := s.Metrics.Percent()
 		students.Rows = append(students.Rows, []string{s.GroupName, s.Name, s.EducationalID,
@@ -49,7 +50,7 @@ func Sheets(r analytics.Report) []Sheet {
 			fmt.Sprint(s.NeedsRevision), fmt.Sprint(s.Missing), fmt.Sprint(s.Overdue),
 			percent(p, ok), s.NearestDue})
 	}
-	docs := Sheet{Name: "Документы", Headers: []string{"Группа", "ФИО", "Учебный ID", "Требование", "Статус", "Срок", "Дней просрочки", "Ранее принятая копия"}}
+	docs := Sheet{Name: "Документы", NumericColumns: map[int]bool{6:true}, Headers: []string{"Группа", "ФИО", "Учебный ID", "Требование", "Статус", "Срок", "Дней просрочки", "Ранее принятая копия"}}
 	for _, d := range r.Documents {
 		had := "Нет"
 		if d.ApprovedCopy {
@@ -181,7 +182,14 @@ func sheetXML(s Sheet) ([]byte, error) {
 			} else if index%2 == 0 {
 				style = 2
 			}
-			fmt.Fprintf(&b, `<c r="%s%d" s="%d" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>`, colName(c), index+1, style, escapeText(v))
+			if index > 0 && s.NumericColumns[c] {
+				if _, err := strconv.ParseInt(v, 10, 64); err != nil {
+					return nil, fmt.Errorf("invalid generated report number: %w", err)
+				}
+				fmt.Fprintf(&b, `<c r="%s%d" s="%d"><v>%s</v></c>`, colName(c), index+1, style, v)
+			} else {
+				fmt.Fprintf(&b, `<c r="%s%d" s="%d" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>`, colName(c), index+1, style, escapeText(v))
+			}
 		}
 		b.WriteString("</row>")
 	}
