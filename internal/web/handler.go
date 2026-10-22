@@ -209,6 +209,10 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	}
 	if deps.Assets != nil {
 		mux.HandleFunc("GET /assets", func(w http.ResponseWriter, r *http.Request) { showAssets(w, r, deps.Assets, token) })
+		if binds,ok:=deps.Assets.(assetBindingLibrary);ok{
+			mux.HandleFunc("GET /groups/{id}/templates",func(w http.ResponseWriter,r *http.Request){showGroupTemplateBindings(w,r,binds,token)})
+			mux.HandleFunc("POST /groups/{id}/templates",func(w http.ResponseWriter,r *http.Request){saveGroupTemplateBinding(w,r,binds,token)})
+		}
 		mux.HandleFunc("POST /assets", func(w http.ResponseWriter, r *http.Request) { createAsset(w, r, deps.Assets, token) })
 		mux.HandleFunc("POST /assets/{id}/upload", func(w http.ResponseWriter, r *http.Request) { uploadAsset(w, r, deps.Assets, token) })
 		mux.HandleFunc("GET /assets/{id}/versions/{version}", func(w http.ResponseWriter, r *http.Request) { downloadAsset(w, r, deps.Assets) })
