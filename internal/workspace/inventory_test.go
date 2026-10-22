@@ -38,6 +38,7 @@ func TestInventoryReportsUnknownFilesButPreservesThem(t *testing.T) {
 	if err != nil || count != 1 {
 		t.Fatalf("unknown files=%d err=%v", count, err)
 	}
+	if report.ExtraFiles != 1 { t.Fatalf("missing orphan count in audit: %+v",report) }
 	if !report.Healthy() {
 		t.Fatalf("audit unexpectedly flagged data: %+v", report)
 	}
