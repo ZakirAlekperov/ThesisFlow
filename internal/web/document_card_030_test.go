@@ -24,7 +24,7 @@ func TestThesisWorkspaceSummary(t *testing.T) {
 		t.Fatalf("GET card = %d: %s", rec.Code, rec.Body.String())
 	}
 	for _, want := range []string{
-		"ИСП-401", "ЗК-0017", "0 из 1 принято", "Не сдано: 1",
+		"ИСП-401", "ЗК-0017", "0 из 1 принято", "Не сдано: <strong>1</strong>",
 		fmt.Sprintf("href=\"#requirement-%d\"", requirementID),
 		fmt.Sprintf("id=\"requirement-%d\"", requirementID),
 		"Тема ВКР и приказ",
@@ -67,7 +67,7 @@ func TestThesisWorkspaceReflectsRealStatuses(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, page, nil))
-	if !strings.Contains(rec.Body.String(), "На проверке: 1") {
+	if !strings.Contains(rec.Body.String(), "На проверке: <strong>1</strong>") {
 		t.Fatalf("uploaded document absent from review counter: %s", rec.Body.String())
 	}
 	list, err := versions.List(context.Background(), studentID, requirementID)
