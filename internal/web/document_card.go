@@ -45,6 +45,9 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
     .version-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .version-actions form { margin: 0; }
     .version-actions button { background: transparent; color: var(--tf-accent, #2456a9); border: 1px solid var(--tf-border, #dbe3ef); }
+    .batch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .batch-grid label { border: 1px solid var(--tf-border, #dbe3ef); border-radius: 9px; padding: 10px; }
+    .batch-grid input[type="file"] { margin-top: 8px; }
     .history { margin: 12px 0 0; }
     .history ul { margin: 10px 0; padding-left: 20px; }
     a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid #367cc0; outline-offset: 3px; }
@@ -93,6 +96,25 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
         <button type="submit">Сохранить тему ВКР</button>
       </form>
     </details>
+  </section>
+  {{end}}
+
+  {{if .Documents}}
+  <section class="panel" id="batch-upload" aria-labelledby="batch-title">
+    <h2 id="batch-title">Пакетная загрузка документов</h2>
+    <p class="muted">Выберите файл напротив каждого нужного документа. Пустые поля будут пропущены. Проверяйте соответствие файла требованию перед отправкой.</p>
+    <form method="post" enctype="multipart/form-data" action="/groups/{{.GroupID}}/students/{{.StudentID}}/documents/batch">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <div class="batch-grid">
+        {{range .Documents}}
+        <label>{{.Requirement.Title}}
+          <input type="file" name="document_{{.Requirement.ID}}" accept=".docx,.pdf,.odt,.rtf,.txt,.xlsx">
+        </label>
+        {{end}}
+      </div>
+      <p class="muted">За один раз: до 10 файлов, каждый до 20 МиБ, общий размер до 40 МиБ. Новые версии поступят на проверку, принятые ранее файлы сохранятся до следующего утверждения.</p>
+      <button type="submit">Загрузить выбранные документы</button>
+    </form>
   </section>
   {{end}}
 
