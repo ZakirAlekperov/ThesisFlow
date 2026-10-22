@@ -1,0 +1,27 @@
+name: Temporary ThesisFlow workspace formatter
+on:
+  push:
+    branches: [feature/0.6.0-workspace-launch-lock]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.6.0-workspace-launch-lock
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: gofmt and commit
+        run: |
+          gofmt -w internal/workspacelock/*.go cmd/thesisflow/main.go cmd/thesisflow/workspace_command.go cmd/thesisflow/workspace_command_test.go cmd/thesisflow/backup_command.go
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add internal/workspacelock cmd/thesisflow
+            git commit -m "style: gofmt 0.6 workspace activation and lock"
+            git push origin HEAD:feature/0.6.0-workspace-launch-lock
+          fi
