@@ -49,7 +49,8 @@ func (r *Repository) Init(ctx context.Context) error {
 	const schema = `CREATE TABLE IF NOT EXISTS student_groups (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		name_key TEXT NOT NULL UNIQUE
+		name_key TEXT NOT NULL UNIQUE,
+		archived_at TEXT
 	)`
 	if _, err := r.db.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("initialize groups table: %w", err)
@@ -98,7 +99,7 @@ func (r *Repository) Create(ctx context.Context, name string) (Group, error) {
 // названий. При отсутствии групп возвращается пустой срез, а не nil.
 // При ошибке чтения частичный результат не возвращается.
 func (r *Repository) List(ctx context.Context) ([]Group, error) {
-	const query = `SELECT id, name FROM student_groups ORDER BY name_key, id`
+	const query = `SELECT id, name FROM student_groups WHERE archived_at IS NULL ORDER BY name_key, id`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list groups: %w", err)

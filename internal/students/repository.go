@@ -62,6 +62,7 @@ func (r *Repository) Init(ctx context.Context) error {
 		educational_id TEXT NOT NULL,
 		educational_id_key TEXT NOT NULL UNIQUE,
 		full_name TEXT NOT NULL,
+		archived_at TEXT,
 		CHECK (group_id > 0),
 		CHECK (length(trim(educational_id)) > 0),
 		CHECK (length(trim(full_name)) > 0)
@@ -162,7 +163,7 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID int64) ([]Student,
 
 	const query = `SELECT id, group_id, educational_id, full_name
 		FROM students
-		WHERE group_id = ?
+		WHERE group_id = ? AND archived_at IS NULL
 		ORDER BY full_name COLLATE BINARY, id`
 	rows, err := r.db.QueryContext(ctx, query, groupID)
 	if err != nil {

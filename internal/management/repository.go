@@ -14,9 +14,10 @@ import (
 // missing archived/active records without exposing internal SQLite details.
 // RU: Типизированные ошибки используются для безопасной проверки форм.
 var (
-	ErrInvalid   = errors.New("invalid record data")
-	ErrDuplicate = errors.New("normalized identifier already exists")
-	ErrNotFound  = errors.New("record does not exist")
+	ErrInvalid       = errors.New("invalid record data")
+	ErrDuplicate     = errors.New("normalized identifier already exists")
+	ErrNotFound      = errors.New("record does not exist")
+	ErrAcceptedFiles = errors.New("accepted documents require file-path reconciliation before renaming")
 )
 
 // Repository operates on records introduced by the version-one migration.
@@ -48,6 +49,25 @@ func changed(result sql.Result, err error) error {
 	return nil
 }
 
+// hasAcceptedFiles blocks path-sensitive edits while approved files retain
+// human-readable names. No check is required on a legacy database without this table.
+// RU: hasAcceptedFiles защищает пути принятых документов от рассинхронизации.
+func (r *Repository) hasAcceptedFiles(ctx context.Context, recordID int64, byGroup bool) (bool, error) {
+	ready, err := exists(ctx, r.db, "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='accepted_files')")
+	if err != nil {
+		return false, err
+	}
+	if !ready {
+		return false, nil
+	}
+	if byGroup {
+		return exists(ctx, r.db, `SELECT EXISTS(
+			SELECT 1 FROM accepted_files af JOIN students st ON af.student_id=st.id
+			WHERE st.group_id=? )`, recordID)
+	}
+	return exists(ctx, r.db, "SELECT EXISTS(SELECT 1 FROM accepted_files WHERE student_id=?)", recordID)
+}
+
 // RenameGroup updates display and case-folded index while preserving ID.
 // RU: RenameGroup меняет название группы, сохраняя постоянный ID.
 func (r *Repository) RenameGroup(ctx context.Context, id int64, name string) error {
@@ -65,6 +85,13 @@ func (r *Repository) RenameGroup(ctx context.Context, id int64, name string) err
 	}
 	if duplicate {
 		return ErrDuplicate
+	}
+	approved, err := r.hasAcceptedFiles(ctx, id, true)
+	if err != nil {
+		return fmt.Errorf("check accepted group files: %w", err)
+	}
+	if approved {
+		return ErrAcceptedFiles
 	}
 	result, err := r.db.ExecContext(ctx, "UPDATE student_groups SET name=?, name_key=? WHERE id=?", name, key, id)
 	if err != nil {
@@ -105,6 +132,13 @@ func (r *Repository) UpdateStudent(ctx context.Context, id int64, educationalID,
 	if duplicate {
 		return ErrDuplicate
 	}
+	approved, err := r.hasAcceptedFiles(ctx, id, false)
+	if err != nil {
+		return fmt.Errorf("check accepted student files: %w", err)
+	}
+	if approved {
+		return ErrAcceptedFiles
+	}
 	result, err := r.db.ExecContext(ctx, "UPDATE students SET educational_id=?, educational_id_key=?, full_name=? WHERE id=?", educationalID, key, fullName, id)
 	if err != nil {
 		return fmt.Errorf("update student: %w", err)
@@ -127,6 +161,13 @@ func (r *Repository) MoveStudent(ctx context.Context, id, target int64) error {
 	}
 	if !ok {
 		return ErrNotFound
+	}
+	approved, err := r.hasAcceptedFiles(ctx, id, false)
+	if err != nil {
+		return fmt.Errorf("check accepted student files: %w", err)
+	}
+	if approved {
+		return ErrAcceptedFiles
 	}
 	result, err := r.db.ExecContext(ctx, "UPDATE students SET group_id=? WHERE id=?", target, id)
 	if err != nil {
