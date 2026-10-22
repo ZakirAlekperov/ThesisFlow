@@ -1,0 +1,41 @@
+/* ThesisFlow 0.2.0: shared local UI theme, no external CSS toolkit. */
+:root {
+  color-scheme: light;
+  --tf-bg: #f4f7fb; --tf-panel: #ffffff; --tf-text: #1d2a40;
+  --tf-muted: #5e6c82; --tf-border: #dbe3ef; --tf-accent: #2456a9;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --tf-bg: #111827; --tf-panel: #1d293c; --tf-text: #ecf2ff;
+  --tf-muted: #b1bfd3; --tf-border: #344259; --tf-accent: #84afff;
+}
+body { background: var(--tf-bg) !important; color: var(--tf-text) !important; }
+.panel, .metric, main:has(> .metrics), section.panel {
+  background: var(--tf-panel) !important; color: var(--tf-text) !important;
+  border-color: var(--tf-border) !important;
+}
+a, .back { color: var(--tf-accent) !important; }
+p, .empty, .subtitle, .group-id, .student-id, .muted, .note, small {
+  color: var(--tf-muted) !important;
+}
+input, select, textarea {
+  background: var(--tf-panel) !important; color: var(--tf-text) !important;
+  border: 1px solid var(--tf-border) !important;
+}
+button { cursor: pointer; }
+#thesisflow-theme-toggle {
+  position: fixed; top: 10px; right: 14px; z-index: 25;
+  border: 1px solid var(--tf-border); background: var(--tf-panel);
+  color: var(--tf-text); border-radius: 10px; padding: 9px 12px;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.1);
+}
+:root[data-theme="dark"] table td {
+  background: var(--tf-panel); border-color: var(--tf-border);
+}
+@media (max-width: 720px) {
+  #thesisflow-theme-toggle { position: static; margin: 8px; }
+}
+@media print {
+  #thesisflow-theme-toggle { display: none !important; }
+  body { background: white !important; color: black !important; }
+}
