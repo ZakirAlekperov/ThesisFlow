@@ -246,6 +246,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		mux.HandleFunc("POST /groups/{id}/requirements", func(w http.ResponseWriter, r *http.Request) {
 			createGroupRequirement(w, r, store, deps.Requirements, token)
 		})
+		if editor, ok := deps.Requirements.(RequirementEditor); ok {
+			mux.HandleFunc("POST /groups/{id}/requirements/{requirement}/update", func(w http.ResponseWriter, r *http.Request) {
+				updateGroupRequirement(w, r, store, editor, token)
+			})
+		}
 	}
 	if deps.Report != nil {
 		mux.HandleFunc("GET /groups/{id}/report", func(w http.ResponseWriter, r *http.Request) {
