@@ -13,6 +13,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspaceselect"
 )
 
 // ErrUnsafeWorkspace rejects unverified, missing, damaged, or unsupported
@@ -122,6 +123,13 @@ func checkDatabasePragmas(ctx context.Context, db *sql.DB) error {
 // "run" affects ONLY this invocation and terminates on Ctrl+C.
 // RU: Выбор другого пространства не перезаписывает основную базу.
 func runWorkspaceCommand(ctx context.Context, args []string, out io.Writer, openBrowser func(string) error) error {
+	if len(args) == 2 && args[0] == "workspace" && args[1] == "reset" {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			return err
+		}
+		return resetWorkspaceChoice(ctx, filepath.Join(configDir, "ThesisFlow"), out)
+	}
 	if len(args) != 3 || args[0] != "workspace" || args[2] == "" {
 		return fmt.Errorf("usage: thesisflow workspace inspect <directory> | workspace run <directory>")
 	}
@@ -160,8 +168,19 @@ func runWorkspaceCommand(ctx context.Context, args []string, out io.Writer, open
 		_, err = fmt.Fprintln(out, "Рабочее пространство прошло проверку целостности.")
 		return err
 	case "run":
-		return startWithPreflight(ctx, out, localPort, filepath.Join(root, "thesisflow.sqlite"), openBrowser, true)
+		return startWithPreflight(ctx, out, localPort, filepath.Join(root, "thesisflow.sqlite"), openBrowser, true, nil)
 	default:
 		return fmt.Errorf("usage: thesisflow workspace inspect <directory> | workspace run <directory>")
 	}
+}
+
+// resetWorkspaceChoice recovers from a missing/damaged selected workspace
+// without launching the UI or overwriting database files.
+// RU: Аварийный возврат к основной папке без удаления документов.
+func resetWorkspaceChoice(ctx context.Context, root string, out io.Writer) error {
+	if err := workspaceselect.New(root).Choose(ctx, workspaceselect.Default); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(out, "При следующем запуске будет открыто основное рабочее пространство.")
+	return err
 }

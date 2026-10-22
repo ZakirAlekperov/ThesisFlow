@@ -148,6 +148,7 @@ type Dependencies struct {
 	Management   RecordManager
 	Backup       BackupExporter
 	Restore      BackupRestorer
+	Selection    WorkspaceSelection
 	Doctor       WorkspaceDoctor
 	Matrix       MatrixProvider
 	ReviewQueue  ReviewQueueReader
@@ -213,9 +214,17 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 			renderWorkspaceHealth(w, r, deps.Doctor)
 		})
 	}
+	if deps.Selection != nil {
+		mux.HandleFunc("GET /settings/workspaces", func(w http.ResponseWriter, r *http.Request) {
+			showWorkspaceSelection(w, r, deps.Selection, token, "")
+		})
+		mux.HandleFunc("POST /settings/workspaces", func(w http.ResponseWriter, r *http.Request) {
+			saveWorkspaceSelection(w, r, deps.Selection, token)
+		})
+	}
 	if deps.Backup != nil || deps.Restore != nil {
 		mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
-			renderSettings(w, r, token)
+			renderSettings(w, r, token, deps.Selection != nil)
 		})
 	}
 	if deps.Backup != nil {
