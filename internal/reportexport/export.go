@@ -30,7 +30,7 @@ type Sheet struct {
 // Sheets constructs three consistently filtered views of one report.
 // RU: Одинаковые фильтры используются для экрана и всех листов Excel.
 func Sheets(r analytics.Report) []Sheet {
-	summary := Sheet{Name: "Сводка", NumericColumns: map[int]bool{1: true,2: true,3: true,4: true,5: true,6: true,7: true,8: true}, Headers: []string{"Учебная группа", "Студентов", "Всего требований", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Есть принятая копия", "Готовность"}}
+	summary := Sheet{Name: "Сводка", NumericColumns: map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true}, Headers: []string{"Учебная группа", "Студентов", "Всего требований", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Есть принятая копия", "Готовность"}}
 	for _, g := range r.Groups {
 		p, valid := g.Metrics.Percent()
 		summary.Rows = append(summary.Rows, []string{g.Name, fmt.Sprint(g.Students), fmt.Sprint(g.Required),
@@ -42,7 +42,7 @@ func Sheets(r analytics.Report) []Sheet {
 	summary.Rows = append(summary.Rows, []string{"ИТОГО", fmt.Sprint(totals.Students), fmt.Sprint(totals.Required),
 		fmt.Sprint(totals.Accepted), fmt.Sprint(totals.UnderReview), fmt.Sprint(totals.NeedsRevision),
 		fmt.Sprint(totals.Missing), fmt.Sprint(totals.Overdue), fmt.Sprint(totals.WithApprovedCopy), percent(p, ok)})
-	students := Sheet{Name: "Студенты", NumericColumns: map[int]bool{3: true,4: true,5: true,6: true,7: true,8: true}, Headers: []string{"Группа", "ФИО", "Учебный ID", "Всего", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Готовность", "Ближайший срок"}}
+	students := Sheet{Name: "Студенты", NumericColumns: map[int]bool{3: true, 4: true, 5: true, 6: true, 7: true, 8: true}, Headers: []string{"Группа", "ФИО", "Учебный ID", "Всего", "Принято", "На проверке", "На доработке", "Не сдано", "Просрочено", "Готовность", "Ближайший срок"}}
 	for _, s := range r.Students {
 		p, ok := s.Metrics.Percent()
 		students.Rows = append(students.Rows, []string{s.GroupName, s.Name, s.EducationalID,
