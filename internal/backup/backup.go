@@ -332,3 +332,38 @@ func Restore(archivePath, destination string) error {
 	}
 	return nil
 }
+
+// checkRestoredWorkspace validates the staged SQLite snapshot and document
+// references without opening the user's active database.
+// RU: Проверка связей и файлов до публикации восстановленного каталога.
+func checkRestoredWorkspace(destination string) error {
+	ctx := context.Background()
+	db, err := sqlite.Open(ctx, filepath.Join(destination, "thesisflow.sqlite"))
+	if err != nil {
+		return fmt.Errorf("open staged database: %w", err)
+	}
+	defer db.Close()
+	report, err := workspace.Check(ctx, db, filepath.Join(destination, "storage"))
+	if err != nil {
+		return err
+	}
+	if report.SchemaVersion > migrate.CurrentVersion {
+		return fmt.Errorf("unsupported SQLite schema %d", report.SchemaVersion)
+	}
+	if !report.Healthy() {
+		return fmt.Errorf("staged workspace has %d integrity issues", len(report.Issues))
+	}
+	return nil
+}
+
+// Verify validates a ZIP in an isolated temporary folder, then removes it.
+// It never overwrites the active workspace.
+// RU: Проверяем архив без изменения действующих документов.
+func Verify(archivePath string) error {
+	temp, err := os.MkdirTemp("", "thesisflow-verify-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(temp)
+	return Restore(archivePath, filepath.Join(temp, "verified"))
+}
