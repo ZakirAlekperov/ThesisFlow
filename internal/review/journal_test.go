@@ -235,3 +235,20 @@ func TestAcceptRejectsTamperedPriorCopyWithoutCreatingIntent(t *testing.T) {
 		t.Fatalf("rejected approval recorded intent: %d %v", pending, err)
 	}
 }
+
+// TestCannotAcceptSupersededVersion prevents approval of an obsolete file
+// after a newer revision is already registered in SQLite.
+// RU: Нельзя случайно принять старую главу после загрузки новой.
+func TestCannotAcceptSupersededVersion(t *testing.T) {
+	ctx:=context.Background()
+	svc,studentID,requirementID:=testReview(t)
+	first,err:=svc.Versions.Save(ctx,studentID,requirementID,"chapter-v1.docx",[]byte("old"))
+	if err!=nil{t.Fatal(err)}
+	_,err=svc.Versions.Save(ctx,studentID,requirementID,"chapter-v2.docx",[]byte("new"))
+	if err!=nil{t.Fatal(err)}
+	if _,err:=svc.Accept(ctx,studentID,requirementID,first.ID);!errors.Is(err,ErrInvalidVersion){
+		t.Fatalf("obsolete revision was allowed for acceptance: %v",err)
+	}
+	pending,err:=svc.PendingCount(ctx)
+	if err!=nil||pending!=0{t.Fatalf("old revision left a journal entry: %d %v",pending,err)}
+}
