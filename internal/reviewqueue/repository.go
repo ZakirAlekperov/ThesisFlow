@@ -19,36 +19,36 @@ const (
 // Pending represents the latest version of a document awaiting review.
 // RU: Pending содержит только актуальную версию, ожидающую проверки.
 type Pending struct {
-	GroupID int64
-	GroupName string
-	StudentID int64
-	StudentName string
-	EducationalID string
-	RequirementID int64
+	GroupID          int64
+	GroupName        string
+	StudentID        int64
+	StudentName      string
+	EducationalID    string
+	RequirementID    int64
 	RequirementTitle string
-	VersionID int64
-	OriginalName string
-	UploadedAt string
+	VersionID        int64
+	OriginalName     string
+	UploadedAt       string
 }
 
 // Completeness summarizes applicable group-wide and personal requirements.
 // A zero Total is a non-applicable state, not 100% complete.
 // RU: Комплектность включает общие и персональные требования.
 type Completeness struct {
-	StudentID int64
-	FullName string
+	StudentID     int64
+	FullName      string
 	EducationalID string
-	Total int
-	Accepted int
-	UnderReview int
+	Total         int
+	Accepted      int
+	UnderReview   int
 	NeedsRevision int
-	Missing int
-	Overdue int
+	Missing       int
+	Overdue       int
 }
 
 // Repository reads the existing tables and never stores derived metrics.
 // RU: Repository не создаёт таблиц и не меняет статусы документов.
-type Repository struct { db *sql.DB }
+type Repository struct{ db *sql.DB }
 
 // New creates a read-only teacher workflow projection.
 // RU: New создаёт слой чтения из существующей SQLite.
@@ -59,8 +59,12 @@ func New(db *sql.DB) *Repository { return &Repository{db: db} }
 // No stale older version can be submitted for review from this list.
 // RU: Выдаёт только последнюю версию у активных студентов/групп.
 func (r *Repository) ListPending(ctx context.Context, groupID int64, offset int) ([]Pending, error) {
-	if err := ctx.Err(); err != nil { return nil, err }
-	if groupID < 0 || offset < 0 || offset > 100000 { return nil, fmt.Errorf("invalid queue filters") }
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if groupID < 0 || offset < 0 || offset > 100000 {
+		return nil, fmt.Errorf("invalid queue filters")
+	}
 	const query = `SELECT g.id,g.name,s.id,s.full_name,s.educational_id,
 		r.id,r.title,v.id,v.original_name,v.uploaded_at
 	FROM material_status m
@@ -76,21 +80,25 @@ func (r *Repository) ListPending(ctx context.Context, groupID int64, offset int)
 		AND (?=0 OR g.id=?)
 	ORDER BY v.uploaded_at,v.id LIMIT ? OFFSET ?`
 	// Fetch one extra row to show a next-page affordance without COUNT queries.
-	rows, err := r.db.QueryContext(ctx,query,groupID,groupID,PageSize+1,offset)
-	if err != nil { return nil, fmt.Errorf("list pending revisions: %w",err) }
+	rows, err := r.db.QueryContext(ctx, query, groupID, groupID, PageSize+1, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list pending revisions: %w", err)
+	}
 	defer rows.Close()
-	list:=make([]Pending,0)
+	list := make([]Pending, 0)
 	for rows.Next() {
 		var entry Pending
-		if err:=rows.Scan(&entry.GroupID,&entry.GroupName,&entry.StudentID,
-			&entry.StudentName,&entry.EducationalID,&entry.RequirementID,
-			&entry.RequirementTitle,&entry.VersionID,&entry.OriginalName,&entry.UploadedAt);err!=nil {
-			return nil,fmt.Errorf("scan review queue: %w",err)
+		if err := rows.Scan(&entry.GroupID, &entry.GroupName, &entry.StudentID,
+			&entry.StudentName, &entry.EducationalID, &entry.RequirementID,
+			&entry.RequirementTitle, &entry.VersionID, &entry.OriginalName, &entry.UploadedAt); err != nil {
+			return nil, fmt.Errorf("scan review queue: %w", err)
 		}
-		list=append(list,entry)
+		list = append(list, entry)
 	}
-	if err:=rows.Err();err!=nil { return nil,fmt.Errorf("iterate review queue: %w",err) }
-	return list,nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate review queue: %w", err)
+	}
+	return list, nil
 }
 
 // GroupCompleteness counts every applicable requirement for each active
@@ -98,8 +106,12 @@ func (r *Repository) ListPending(ctx context.Context, groupID int64, offset int)
 // zero requirements visible. Deadlines are compared as ISO local dates.
 // RU: Один SQL-запрос даёт комплектность, включая пустые наборы документов.
 func (r *Repository) GroupCompleteness(ctx context.Context, groupID int64, today time.Time) ([]Completeness, error) {
-	if err:=ctx.Err();err!=nil { return nil,err }
-	if groupID<=0 {return nil,fmt.Errorf("invalid group identifier")}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if groupID <= 0 {
+		return nil, fmt.Errorf("invalid group identifier")
+	}
 	const query = `SELECT s.id,s.full_name,s.educational_id,
 		COUNT(r.id),
 		COALESCE(SUM(CASE WHEN r.id IS NOT NULL AND m.status='accepted' THEN 1 ELSE 0 END),0),
@@ -114,19 +126,23 @@ func (r *Repository) GroupCompleteness(ctx context.Context, groupID int64, today
 	WHERE s.group_id=? AND s.archived_at IS NULL
 	GROUP BY s.id,s.full_name,s.educational_id
 	ORDER BY s.full_name,s.id`
-	rows,err:=r.db.QueryContext(ctx,query,today.Format("2006-01-02"),groupID)
-	if err!=nil{return nil,fmt.Errorf("load group completeness: %w",err)}
+	rows, err := r.db.QueryContext(ctx, query, today.Format("2006-01-02"), groupID)
+	if err != nil {
+		return nil, fmt.Errorf("load group completeness: %w", err)
+	}
 	defer rows.Close()
-	list:=make([]Completeness,0)
+	list := make([]Completeness, 0)
 	for rows.Next() {
 		var c Completeness
-		if err:=rows.Scan(&c.StudentID,&c.FullName,&c.EducationalID,
-			&c.Total,&c.Accepted,&c.UnderReview,&c.NeedsRevision,&c.Overdue);err!=nil{
-			return nil,fmt.Errorf("scan completeness: %w",err)
+		if err := rows.Scan(&c.StudentID, &c.FullName, &c.EducationalID,
+			&c.Total, &c.Accepted, &c.UnderReview, &c.NeedsRevision, &c.Overdue); err != nil {
+			return nil, fmt.Errorf("scan completeness: %w", err)
 		}
-		c.Missing=c.Total-c.Accepted-c.UnderReview-c.NeedsRevision
-		list=append(list,c)
+		c.Missing = c.Total - c.Accepted - c.UnderReview - c.NeedsRevision
+		list = append(list, c)
 	}
-	if err:=rows.Err();err!=nil {return nil,fmt.Errorf("iterate completeness: %w",err)}
-	return list,nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate completeness: %w", err)
+	}
+	return list, nil
 }

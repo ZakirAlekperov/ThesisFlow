@@ -23,19 +23,19 @@ type ReviewQueueReader interface {
 }
 
 type reviewQueueData struct {
-	Groups []groups.Group
-	Items []reviewqueue.Pending
+	Groups  []groups.Group
+	Items   []reviewqueue.Pending
 	GroupID int64
-	Offset int
-	Prev int
-	Next int
+	Offset  int
+	Prev    int
+	Next    int
 	HasNext bool
 }
 
 // reviewQueueTemplate uses local HTML/CSS and displays only latest pending
 // versions, ordered by the actual upload event.
 // RU: Очередь показывает актуальные версии по времени загрузки.
-var reviewQueueTemplate=template.Must(template.New("review-queue").Parse(`<!doctype html>
+var reviewQueueTemplate = template.Must(template.New("review-queue").Parse(`<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Очередь проверки — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
@@ -67,26 +67,26 @@ select,button{font:inherit;padding:9px 12px;border-radius:8px}
 </section></body></html>`))
 
 type completenessRow struct {
-	StudentID int64
-	FullName string
-	EducationalID string
-	Total int
-	Accepted int
-	UnderReview int
-	NeedsRevision int
-	Missing int
-	Overdue int
-	Percent int
+	StudentID       int64
+	FullName        string
+	EducationalID   string
+	Total           int
+	Accepted        int
+	UnderReview     int
+	NeedsRevision   int
+	Missing         int
+	Overdue         int
+	Percent         int
 	HasRequirements bool
 }
 
 type completenessData struct {
-	GroupID int64
+	GroupID   int64
 	GroupName string
-	Students []completenessRow
+	Students  []completenessRow
 }
 
-var completenessTemplate=template.Must(template.New("completeness").Parse(`<!doctype html>
+var completenessTemplate = template.Must(template.New("completeness").Parse(`<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Комплектность группы {{.GroupName}} — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
@@ -107,62 +107,106 @@ var completenessTemplate=template.Must(template.New("completeness").Parse(`<!doc
 // renderReviewQueue validates GET filters, loads a bounded set and shows
 // the pending-version queue. No status is changed by this operation.
 // RU: Ограниченная выборка очереди через серверный Go-шаблон.
-func renderReviewQueue(w http.ResponseWriter,r *http.Request,groupsStore GroupStore,reader ReviewQueueReader) {
-	groupID:=int64(0)
-	if value:=r.URL.Query().Get("group");value!="" {
-		id,err:=strconv.ParseInt(value,10,64)
-		if err!=nil||id<0 {http.Error(w,"Неверная группа.",http.StatusBadRequest);return}
-		groupID=id
+func renderReviewQueue(w http.ResponseWriter, r *http.Request, groupsStore GroupStore, reader ReviewQueueReader) {
+	groupID := int64(0)
+	if value := r.URL.Query().Get("group"); value != "" {
+		id, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || id < 0 {
+			http.Error(w, "Неверная группа.", http.StatusBadRequest)
+			return
+		}
+		groupID = id
 	}
-	offset:=0
-	if value:=r.URL.Query().Get("offset");value!="" {
-		value64,err:=strconv.ParseInt(value,10,32)
-		if err!=nil||value64<0||value64>100000 {http.Error(w,"Неверная страница.",http.StatusBadRequest);return}
-		offset=int(value64)
+	offset := 0
+	if value := r.URL.Query().Get("offset"); value != "" {
+		value64, err := strconv.ParseInt(value, 10, 32)
+		if err != nil || value64 < 0 || value64 > 100000 {
+			http.Error(w, "Неверная страница.", http.StatusBadRequest)
+			return
+		}
+		offset = int(value64)
 	}
-	groupsList,err:=groupsStore.List(r.Context())
-	if err!=nil {http.Error(w,"Не удалось загрузить группы.",http.StatusInternalServerError);return}
-	if groupID!=0 {
-		found:=false
-		for _,group:=range groupsList {if group.ID==groupID {found=true;break}}
-		if !found {http.NotFound(w,r);return}
+	groupsList, err := groupsStore.List(r.Context())
+	if err != nil {
+		http.Error(w, "Не удалось загрузить группы.", http.StatusInternalServerError)
+		return
 	}
-	items,err:=reader.ListPending(r.Context(),groupID,offset)
-	if err!=nil {http.Error(w,"Не удалось загрузить очередь.",http.StatusInternalServerError);return}
-	next:=len(items)>reviewqueue.PageSize
-	if next {items=items[:reviewqueue.PageSize]}
-	prev:=offset-reviewqueue.PageSize
-	if prev<0 {prev=0}
-	data:=reviewQueueData{Groups:groupsList,Items:items,GroupID:groupID,
-		Offset:offset,Prev:prev,Next:offset+reviewqueue.PageSize,HasNext:next}
+	if groupID != 0 {
+		found := false
+		for _, group := range groupsList {
+			if group.ID == groupID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			http.NotFound(w, r)
+			return
+		}
+	}
+	items, err := reader.ListPending(r.Context(), groupID, offset)
+	if err != nil {
+		http.Error(w, "Не удалось загрузить очередь.", http.StatusInternalServerError)
+		return
+	}
+	next := len(items) > reviewqueue.PageSize
+	if next {
+		items = items[:reviewqueue.PageSize]
+	}
+	prev := offset - reviewqueue.PageSize
+	if prev < 0 {
+		prev = 0
+	}
+	data := reviewQueueData{Groups: groupsList, Items: items, GroupID: groupID,
+		Offset: offset, Prev: prev, Next: offset + reviewqueue.PageSize, HasNext: next}
 	var b bytes.Buffer
-	if err:=reviewQueueTemplate.Execute(&b,data);err!=nil {http.Error(w,"Ошибка интерфейса.",http.StatusInternalServerError);return}
-	w.Header().Set("Content-Type","text/html; charset=utf-8")
-	_,_=w.Write(b.Bytes())
+	if err := reviewQueueTemplate.Execute(&b, data); err != nil {
+		http.Error(w, "Ошибка интерфейса.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(b.Bytes())
 }
 
 // renderGroupCompleteness validates membership via the existing group store
 // and calculates statuses from live SQLite, including personal requirements.
 // RU: Комплектность никогда не использует кеш процентных показателей.
-func renderGroupCompleteness(w http.ResponseWriter,r *http.Request,groupsStore GroupStore,reader ReviewQueueReader) {
-	id,err:=parseGroupPathID(r)
-	if err!=nil {http.NotFound(w,r);return}
-	group,err:=findGroup(r.Context(),groupsStore,id)
-	if errors.Is(err,students.ErrGroupNotFound){http.NotFound(w,r);return}
-	if err!=nil {http.Error(w,"Не удалось открыть группу.",http.StatusInternalServerError);return}
-	items,err:=reader.GroupCompleteness(r.Context(),id,time.Now())
-	if err!=nil {http.Error(w,"Не удалось рассчитать комплектность.",http.StatusInternalServerError);return}
-	data:=completenessData{GroupID:id,GroupName:group.Name}
-	for _,entry:=range items {
-		row:=completenessRow{StudentID:entry.StudentID,FullName:entry.FullName,
-			EducationalID:entry.EducationalID,Total:entry.Total,Accepted:entry.Accepted,
-			UnderReview:entry.UnderReview,NeedsRevision:entry.NeedsRevision,
-			Missing:entry.Missing,Overdue:entry.Overdue,HasRequirements:entry.Total>0}
-		if entry.Total>0 {row.Percent=entry.Accepted*100/entry.Total}
-		data.Students=append(data.Students,row)
+func renderGroupCompleteness(w http.ResponseWriter, r *http.Request, groupsStore GroupStore, reader ReviewQueueReader) {
+	id, err := parseGroupPathID(r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	group, err := findGroup(r.Context(), groupsStore, id)
+	if errors.Is(err, students.ErrGroupNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Не удалось открыть группу.", http.StatusInternalServerError)
+		return
+	}
+	items, err := reader.GroupCompleteness(r.Context(), id, time.Now())
+	if err != nil {
+		http.Error(w, "Не удалось рассчитать комплектность.", http.StatusInternalServerError)
+		return
+	}
+	data := completenessData{GroupID: id, GroupName: group.Name}
+	for _, entry := range items {
+		row := completenessRow{StudentID: entry.StudentID, FullName: entry.FullName,
+			EducationalID: entry.EducationalID, Total: entry.Total, Accepted: entry.Accepted,
+			UnderReview: entry.UnderReview, NeedsRevision: entry.NeedsRevision,
+			Missing: entry.Missing, Overdue: entry.Overdue, HasRequirements: entry.Total > 0}
+		if entry.Total > 0 {
+			row.Percent = entry.Accepted * 100 / entry.Total
+		}
+		data.Students = append(data.Students, row)
 	}
 	var b bytes.Buffer
-	if err:=completenessTemplate.Execute(&b,data);err!=nil {http.Error(w,"Ошибка интерфейса.",http.StatusInternalServerError);return}
-	w.Header().Set("Content-Type","text/html; charset=utf-8")
-	_,_=w.Write(b.Bytes())
+	if err := completenessTemplate.Execute(&b, data); err != nil {
+		http.Error(w, "Ошибка интерфейса.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(b.Bytes())
 }
