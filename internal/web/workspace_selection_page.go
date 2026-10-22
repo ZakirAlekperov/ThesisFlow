@@ -8,7 +8,6 @@ import (
  "html/template"
  "net/http"
  "strings"
- "time"
 
  "github.com/ZakirAlekperov/ThesisFlow/internal/workspaceselect"
 )
@@ -119,6 +118,3 @@ func saveWorkspaceSelection(w http.ResponseWriter,r *http.Request,selector Works
  }
  showWorkspaceSelection(w,r,selector,token,"Выбор сохранён. Закройте программу и запустите её снова.")
 }
-
-// Keep the expected local timestamp format independent of remote assets.
-var _ = time.RFC3339
