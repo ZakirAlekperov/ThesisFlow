@@ -222,3 +222,47 @@ func (s *Store) Read(ctx context.Context, assetID, versionID int64) (Version, []
 	}
 	return v, data, nil
 }
+
+// RequirementBinding exposes the optional currently selected teacher file
+// template for a GROUP requirement. Submission does not depend on it.
+// RU: Привязка шаблона не влияет на сдачу или принятие документа.
+type RequirementBinding struct{RequirementID int64;Title string;AssetID int64}
+
+// ListBindings returns current mandatory group requirements, including
+// ones without a linked template.
+// RU: Отсутствие шаблона — допустимое состояние.
+func(s *Store)ListBindings(ctx context.Context,groupID int64)([]RequirementBinding,error){
+ rows,err:=s.DB.QueryContext(ctx,`SELECT r.id,r.title,COALESCE(b.asset_id,0)
+ FROM requirements r LEFT JOIN requirement_asset_bindings b ON b.requirement_id=r.id
+ WHERE r.group_id=? AND r.student_id IS NULL ORDER BY r.title_key,r.id`,groupID)
+ if err!=nil{return nil,err};defer rows.Close()
+ list:=[]RequirementBinding{}
+ for rows.Next(){var x RequirementBinding
+  if err:=rows.Scan(&x.RequirementID,&x.Title,&x.AssetID);err!=nil{return nil,err}
+  list=append(list,x)
+ }
+ return list,rows.Err()
+}
+// Bind attaches an existing teacher asset to a group requirement or clears
+// the association with assetID==0. It never changes document status.
+// RU: Назначение файла-шаблона не меняет учебные документы и события.
+func(s *Store)Bind(ctx context.Context,groupID,requirementID,assetID int64)error{
+ if groupID<=0||requirementID<=0||assetID<0{return ErrInvalid}
+ tx,err:=s.DB.BeginTx(ctx,nil);if err!=nil{return err};defer tx.Rollback()
+ var exists int
+ if err:=tx.QueryRowContext(ctx,`SELECT EXISTS(SELECT 1 FROM requirements
+ WHERE id=? AND group_id=? AND student_id IS NULL)`,requirementID,groupID).Scan(&exists);err!=nil{return err}
+ if exists!=1{return ErrInvalid}
+ if assetID!=0{
+  if err:=tx.QueryRowContext(ctx,"SELECT EXISTS(SELECT 1 FROM template_assets WHERE id=?)",assetID).Scan(&exists);err!=nil{return err}
+  if exists!=1{return ErrInvalid}
+ }
+ if assetID==0{
+  _,err=tx.ExecContext(ctx,"DELETE FROM requirement_asset_bindings WHERE requirement_id=?",requirementID)
+ }else{
+  _,err=tx.ExecContext(ctx,`INSERT INTO requirement_asset_bindings(requirement_id,asset_id) VALUES(?,?)
+  ON CONFLICT(requirement_id) DO UPDATE SET asset_id=excluded.asset_id`,requirementID,assetID)
+ }
+ if err!=nil{return err}
+ return tx.Commit()
+}
