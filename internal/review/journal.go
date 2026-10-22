@@ -295,12 +295,14 @@ func (s *Service) resolveIntent(ctx context.Context, op approvalIntent) error {
 	}
 	// A corrupted journal must not project a different student's version.
 	// RU: До чтения файлов проверяем область действия всех ID журнала.
-	for _,id := range []int64{op.VersionID,op.PreviousVersionID} {
-		if id==0 {continue}
-		var sid,rid int64
-		err:=s.DB.QueryRowContext(ctx,
-			"SELECT student_id,requirement_id FROM file_versions WHERE id=?",id).Scan(&sid,&rid)
-		if err!=nil||sid!=op.StudentID||rid!=op.RequirementID{
+	for _, id := range []int64{op.VersionID, op.PreviousVersionID} {
+		if id == 0 {
+			continue
+		}
+		var sid, rid int64
+		err := s.DB.QueryRowContext(ctx,
+			"SELECT student_id,requirement_id FROM file_versions WHERE id=?", id).Scan(&sid, &rid)
+		if err != nil || sid != op.StudentID || rid != op.RequirementID {
 			return ErrRecoveryConflict
 		}
 	}
