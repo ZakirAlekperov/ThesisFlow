@@ -70,18 +70,28 @@ func tableExists(ctx context.Context, db *sql.DB, table string) (bool, error) {
 // RU: Проверяем путь и все компоненты на символические ссылки.
 func canonicalPath(root, relative string) (string, error) {
 	normalized, err := storagepath.Normalize(relative)
-	if err != nil {return "",err}
+	if err != nil {
+		return "", err
+	}
 	current := root
 	for _, part := range strings.Split(normalized, "/") {
 		current = filepath.Join(current, part)
 		info, err := os.Lstat(current)
-		if err != nil {return "",err}
-		if info.Mode()&os.ModeSymlink != 0 {return "",errors.New("symlink component")}
+		if err != nil {
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", errors.New("symlink component")
+		}
 	}
 	info, err := os.Lstat(current)
-	if err != nil {return "",err}
-	if !info.Mode().IsRegular() {return "",errors.New("not a regular file")}
-	return current,nil
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New("not a regular file")
+	}
+	return current, nil
 }
 
 func hashFile(path string, limit int64) (int64, string, error) {
