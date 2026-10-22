@@ -30,13 +30,13 @@ type DocumentServices struct {
 }
 
 type documentItem struct {
-	Requirement requirements.Requirement
-	Status      string
-	Versions    []fileversions.Version
-	History     []documentHistoryItem
-	Feedback    []documentFeedbackItem
+	Requirement     requirements.Requirement
+	Status          string
+	Versions        []fileversions.Version
+	History         []documentHistoryItem
+	Feedback        []documentFeedbackItem
 	LatestVersionID int64
-	IsOverdue   bool
+	IsOverdue       bool
 }
 
 // documentHistoryItem is a read-only projection of a persisted material event.
@@ -50,9 +50,9 @@ type documentHistoryItem struct {
 // RU: Замечания отображаются в человекочитаемом виде с номером версии.
 type documentFeedbackItem struct {
 	VersionID int64
-	Kind string
-	Text string
-	At string
+	Kind      string
+	Text      string
+	At        string
 }
 
 type documentPage struct {

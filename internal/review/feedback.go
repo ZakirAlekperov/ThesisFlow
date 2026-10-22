@@ -102,18 +102,28 @@ func (s *Service) insertFeedback(ctx context.Context, tx *sql.Tx, studentID, req
 // state. Historical versions remain available for commentary.
 // RU: AddComment сохраняет замечание и не меняет статус документа.
 func (s *Service) AddComment(ctx context.Context, studentID, requirementID, versionID int64, body string) (Feedback, error) {
-	if err := ctx.Err(); err != nil { return Feedback{}, err }
+	if err := ctx.Err(); err != nil {
+		return Feedback{}, err
+	}
 	text, err := cleanFeedback(body)
-	if err != nil { return Feedback{}, err }
+	if err != nil {
+		return Feedback{}, err
+	}
 	if _, err := s.versionInfo(ctx, studentID, requirementID, versionID); err != nil {
 		return Feedback{}, err
 	}
 	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil { return Feedback{}, fmt.Errorf("begin comment: %w", err) }
+	if err != nil {
+		return Feedback{}, fmt.Errorf("begin comment: %w", err)
+	}
 	defer tx.Rollback()
 	note, err := s.insertFeedback(ctx, tx, studentID, requirementID, versionID, FeedbackComment, text)
-	if err != nil { return Feedback{}, err }
-	if err := tx.Commit(); err != nil { return Feedback{}, fmt.Errorf("commit comment: %w", err) }
+	if err != nil {
+		return Feedback{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Feedback{}, fmt.Errorf("commit comment: %w", err)
+	}
 	return note, nil
 }
 
@@ -123,12 +133,20 @@ func (s *Service) AddComment(ctx context.Context, studentID, requirementID, vers
 // accepted-file projection is never deleted.
 // RU: Возврат с причиной атомарен и не затрагивает ранее принятые файлы.
 func (s *Service) RejectWithReason(ctx context.Context, studentID, requirementID, versionID int64, reason string) error {
-	if err := ctx.Err(); err != nil { return err }
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	text, err := cleanFeedback(reason)
-	if err != nil { return err }
-	if _, err := s.versionInfo(ctx, studentID, requirementID, versionID); err != nil { return err }
+	if err != nil {
+		return err
+	}
+	if _, err := s.versionInfo(ctx, studentID, requirementID, versionID); err != nil {
+		return err
+	}
 	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil { return fmt.Errorf("begin rejection: %w", err) }
+	if err != nil {
+		return fmt.Errorf("begin rejection: %w", err)
+	}
 	defer tx.Rollback()
 
 	var latestID int64
@@ -139,9 +157,15 @@ func (s *Service) RejectWithReason(ctx context.Context, studentID, requirementID
 	var current materials.Status
 	err = tx.QueryRowContext(ctx, `SELECT status FROM material_status
 		WHERE student_id=? AND requirement_id=?`, studentID, requirementID).Scan(&current)
-	if errors.Is(err, sql.ErrNoRows) { return ErrStaleReview }
-	if err != nil { return fmt.Errorf("read pending status: %w", err) }
-	if versionID != latestID || current != materials.UnderReview { return ErrStaleReview }
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrStaleReview
+	}
+	if err != nil {
+		return fmt.Errorf("read pending status: %w", err)
+	}
+	if versionID != latestID || current != materials.UnderReview {
+		return ErrStaleReview
+	}
 
 	now := s.Clock().UTC().Format(time.RFC3339Nano)
 	if _, err := tx.ExecContext(ctx, `UPDATE material_status SET status=?,changed_at=?
@@ -153,8 +177,12 @@ func (s *Service) RejectWithReason(ctx context.Context, studentID, requirementID
 		studentID, requirementID, string(materials.NeedsRevision), now); err != nil {
 		return fmt.Errorf("record revision event: %w", err)
 	}
-	if _, err := s.insertFeedback(ctx, tx, studentID, requirementID, versionID, FeedbackRevision, text); err != nil { return err }
-	if err := tx.Commit(); err != nil { return fmt.Errorf("commit revision: %w", err) }
+	if _, err := s.insertFeedback(ctx, tx, studentID, requirementID, versionID, FeedbackRevision, text); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit revision: %w", err)
+	}
 	return nil
 }
 
@@ -162,24 +190,34 @@ func (s *Service) RejectWithReason(ctx context.Context, studentID, requirementID
 // oldest first. It never mixes another student's comments into the response.
 // RU: ListFeedback читает историю замечаний для одной ВКР и требования.
 func (s *Service) ListFeedback(ctx context.Context, studentID, requirementID int64) ([]Feedback, error) {
-	if err := ctx.Err(); err != nil { return nil, err }
-	if studentID <= 0 || requirementID <= 0 { return nil, ErrInvalidVersion }
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if studentID <= 0 || requirementID <= 0 {
+		return nil, ErrInvalidVersion
+	}
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,student_id,requirement_id,version_id,kind,body,created_at
 		FROM review_feedback WHERE student_id=? AND requirement_id=? ORDER BY id`,
 		studentID, requirementID)
-	if err != nil { return nil, fmt.Errorf("list feedback: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("list feedback: %w", err)
+	}
 	defer rows.Close()
-	result := make([]Feedback,0)
+	result := make([]Feedback, 0)
 	for rows.Next() {
 		var item Feedback
 		var at string
-		if err := rows.Scan(&item.ID,&item.StudentID,&item.RequirementID,&item.VersionID,&item.Kind,&item.Text,&at); err != nil {
-			return nil, fmt.Errorf("scan feedback: %w",err)
+		if err := rows.Scan(&item.ID, &item.StudentID, &item.RequirementID, &item.VersionID, &item.Kind, &item.Text, &at); err != nil {
+			return nil, fmt.Errorf("scan feedback: %w", err)
 		}
-		item.CreatedAt,err = time.Parse(time.RFC3339Nano,at)
-		if err != nil { return nil, fmt.Errorf("parse feedback timestamp: %w",err) }
-		result=append(result,item)
+		item.CreatedAt, err = time.Parse(time.RFC3339Nano, at)
+		if err != nil {
+			return nil, fmt.Errorf("parse feedback timestamp: %w", err)
+		}
+		result = append(result, item)
 	}
-	if err := rows.Err(); err != nil { return nil, fmt.Errorf("read feedback rows: %w",err) }
-	return result,nil
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read feedback rows: %w", err)
+	}
+	return result, nil
 }

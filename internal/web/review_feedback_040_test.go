@@ -22,16 +22,26 @@ func uploadReviewedVersion(t *testing.T, h http.Handler, page, csrf string, requ
 	t.Helper()
 	var b bytes.Buffer
 	writer := multipart.NewWriter(&b)
-	if err := writer.WriteField("csrf_token", csrf); err != nil { t.Fatal(err) }
+	if err := writer.WriteField("csrf_token", csrf); err != nil {
+		t.Fatal(err)
+	}
 	part, err := writer.CreateFormFile("document", "Глава 1.docx")
-	if err != nil { t.Fatal(err) }
-	if _, err := part.Write([]byte("review test bytes")); err != nil { t.Fatal(err) }
-	if err := writer.Close(); err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte("review test bytes")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s/documents/%d/upload", page, requirementID), &b)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusSeeOther { t.Fatalf("upload HTTP %d: %s", rec.Code, rec.Body.String()) }
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("upload HTTP %d: %s", rec.Code, rec.Body.String())
+	}
 }
 
 // reviewForm posts a teacher review decision with the same origin and CSRF
@@ -54,7 +64,9 @@ func TestReviewFeedbackBrowserWorkflow(t *testing.T) {
 	csrf := documentToken(t, h, page)
 	uploadReviewedVersion(t, h, page, csrf, requirementID)
 	saved, err := versions.List(context.Background(), studentID, requirementID)
-	if err != nil || len(saved) != 1 { t.Fatalf("versions=%+v err=%v",saved,err) }
+	if err != nil || len(saved) != 1 {
+		t.Fatalf("versions=%+v err=%v", saved, err)
+	}
 	id := saved[0].ID
 	commentPath := fmt.Sprintf("%s/documents/%d/comment/%d", page, requirementID, id)
 	rejectPath := fmt.Sprintf("%s/documents/%d/reject/%d", page, requirementID, id)
@@ -70,29 +82,41 @@ func TestReviewFeedbackBrowserWorkflow(t *testing.T) {
 		t.Fatalf("comment HTTP %d: %s", response.Code, response.Body.String())
 	}
 	state, err := statuses.Get(context.Background(), studentID, requirementID)
-	if err != nil || state.Status != materials.UnderReview { t.Fatalf("comment changed status: %+v %v",state,err) }
+	if err != nil || state.Status != materials.UnderReview {
+		t.Fatalf("comment changed status: %+v %v", state, err)
+	}
 
 	reason := "Отсутствует ссылка на источник 2026 года."
 	if response := reviewForm(h, rejectPath, url.Values{"csrf_token": {csrf}, "reason": {reason}}); response.Code != http.StatusSeeOther {
 		t.Fatalf("reject HTTP %d: %s", response.Code, response.Body.String())
 	}
 	state, err = statuses.Get(context.Background(), studentID, requirementID)
-	if err != nil || state.Status != materials.NeedsRevision { t.Fatalf("rejection status: %+v %v",state,err) }
+	if err != nil || state.Status != materials.NeedsRevision {
+		t.Fatalf("rejection status: %+v %v", state, err)
+	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, page, nil))
 	html := rec.Body.String()
 	for _, want := range []string{"История рецензирования", "Причина возврата", reason, "Версия #", "Проверить подпись"} {
-		if !strings.Contains(html,want) { t.Errorf("feedback page missing %q",want) }
+		if !strings.Contains(html, want) {
+			t.Errorf("feedback page missing %q", want)
+		}
 	}
-	if strings.Contains(html, "<script>alert") { t.Fatal("unescaped review comment") }
-	if !strings.Contains(html, "&lt;script&gt;") { t.Fatal("HTML auto-escaping missing") }
+	if strings.Contains(html, "<script>alert") {
+		t.Fatal("unescaped review comment")
+	}
+	if !strings.Contains(html, "&lt;script&gt;") {
+		t.Fatal("HTML auto-escaping missing")
+	}
 
 	// Duplicate review decisions must not create additional history.
 	if response := reviewForm(h, rejectPath, url.Values{"csrf_token": {csrf}, "reason": {"Ещё раз"}}); response.Code != http.StatusConflict {
-		t.Fatalf("repeated rejection: HTTP %d, want 409",response.Code)
+		t.Fatalf("repeated rejection: HTTP %d, want 409", response.Code)
 	}
 	notes, err := review.NewService(versions.DB, versions).ListFeedback(context.Background(), studentID, requirementID)
-	if err != nil || len(notes) != 2 { t.Fatalf("stored comments/reasons=%+v %v",notes,err) }
+	if err != nil || len(notes) != 2 {
+		t.Fatalf("stored comments/reasons=%+v %v", notes, err)
+	}
 }
 
 // TestReviewFeedbackCannotCrossRequirementScope ensures a teacher cannot
@@ -104,8 +128,12 @@ func TestReviewFeedbackCannotCrossRequirementScope(t *testing.T) {
 	csrf := documentToken(t, h, page)
 	uploadReviewedVersion(t, h, page, csrf, requirementID)
 	saved, err := versions.List(context.Background(), studentID, requirementID)
-	if err != nil || len(saved) != 1 { t.Fatal(err) }
-	target := fmt.Sprintf("%s/documents/%d/comment/%d", page, requirementID + 1234, saved[0].ID)
+	if err != nil || len(saved) != 1 {
+		t.Fatal(err)
+	}
+	target := fmt.Sprintf("%s/documents/%d/comment/%d", page, requirementID+1234, saved[0].ID)
 	response := reviewForm(h, target, url.Values{"csrf_token": {csrf}, "comment": {"cross-scope"}})
-	if response.Code != http.StatusNotFound { t.Fatalf("wrong requirement route HTTP %d",response.Code) }
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("wrong requirement route HTTP %d", response.Code)
+	}
 }
