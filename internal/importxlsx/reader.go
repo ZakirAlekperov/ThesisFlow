@@ -124,6 +124,12 @@ func (s inlineString) text() string {
 // Выбор нужных столбцов реализуется отдельно. Первая страница пока должна
 // находиться по адресу xl/worksheets/sheet1.xml.
 func Read(data []byte) ([][]string, error) {
+	return readSelected(data, "xl/worksheets/sheet1.xml")
+}
+
+// readSelected applies the existing bounded parser to a resolved XLSX member.
+// RU: readSelected разбирает выбранный XML-лист с прежними ограничениями.
+func readSelected(data []byte, selectedPart string) ([][]string, error) {
 	if len(data) > MaxFileSize {
 		return nil, ErrTooLarge
 	}
@@ -133,7 +139,7 @@ func Read(data []byte) ([][]string, error) {
 	}
 	var sheetXML, sharedXML []byte
 	for _, file := range archive.File {
-		if file.Name != "xl/worksheets/sheet1.xml" && file.Name != "xl/sharedStrings.xml" {
+		if file.Name != selectedPart && file.Name != "xl/sharedStrings.xml" {
 			continue
 		}
 		part, err := readPart(file)
@@ -141,7 +147,7 @@ func Read(data []byte) ([][]string, error) {
 			return nil, fmt.Errorf("read %s: %w", file.Name, err)
 		}
 		switch file.Name {
-		case "xl/worksheets/sheet1.xml":
+		case selectedPart:
 			sheetXML = part
 		case "xl/sharedStrings.xml":
 			sharedXML = part

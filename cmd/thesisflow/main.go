@@ -19,13 +19,16 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/management"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/statusmatrix"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 )
 
@@ -148,6 +151,10 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Страницы студентов используют то же постоянное соединение SQLite.
 	handler, err := web.NewHandlerWithServices(repo, students.NewRepository(db), web.Dependencies{
 		Workbook:     importxlsx.Service{DB: db},
+		Management:   management.NewRepository(db),
+		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
+		Restore:      workspaceRestore{root: filepath.Join(filepath.Dir(databasePath), "restores")},
+		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
@@ -155,6 +162,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 			Statuses:     materials.NewRepository(db),
 			Versions:     versions,
 			Reviews:      review.NewService(db, versions),
+			Thesis:       thesis.NewRepository(db),
 		},
 	})
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 
 // Version identifies this prerelease code line and portable binary.
 // RU: Version обозначает текущую предварительную версию приложения.
-const Version = "0.1.10"
+const Version = "0.2.0-rc2"
 
 // writeVersion prints the build's human-readable version without reading
 // user files, opening SQLite, or starting the HTTP server.

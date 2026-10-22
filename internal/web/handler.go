@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"mime"
 	"net/http"
+	"sync"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 )
@@ -68,13 +69,16 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
     .group-name { font-weight: 600; }
     .group-id, .empty { color: #687488; }
     .empty { line-height: 1.6; }
-  </style>
+  </style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 </head>
 <body>
   <main>
     <nav class="tabs" aria-label="Разделы приложения">
       <a href="/" aria-current="page">Учебные группы</a>
       <a href="/templates">Шаблоны</a>
+      <a href="/dashboard">Панель преподавателя</a>
+      <a href="/search">Поиск студентов</a>
+      <a href="/manage">Управление и архив</a>
     </nav>
     <h1>ThesisFlow</h1>
     <p class="subtitle">Локальный помощник преподавателя для учёта материалов ВКР.</p>
@@ -140,6 +144,10 @@ type Dependencies struct {
 	Requirements RequirementStore
 	Report       ReportProvider
 	Documents    *DocumentServices
+	Management   RecordManager
+	Backup       BackupExporter
+	Restore      BackupRestorer
+	Matrix       MatrixProvider
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -161,7 +169,51 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	}
 	token := base64.RawURLEncoding.EncodeToString(secret)
 
+	// Quiesce browser-initiated writes while making a SQLite+file snapshot.
+	// RU: При экспорте временно останавливаем изменения из браузера.
+	var backupGate sync.RWMutex
+
 	mux := http.NewServeMux()
+	if deps.Matrix != nil {
+		mux.HandleFunc("GET /groups/{id}/matrix", func(w http.ResponseWriter, r *http.Request) {
+			renderGroupMatrix(w, r, store, deps.Matrix)
+		})
+	}
+	if deps.Backup != nil || deps.Restore != nil {
+		mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
+			renderSettings(w, r, token)
+		})
+	}
+	if deps.Backup != nil {
+		mux.HandleFunc("POST /settings/backup", func(w http.ResponseWriter, r *http.Request) {
+			downloadBackup(w, r, token, deps.Backup)
+		})
+	}
+	if deps.Restore != nil {
+		mux.HandleFunc("POST /settings/restore", func(w http.ResponseWriter, r *http.Request) {
+			restoreBackup(w, r, token, deps.Restore)
+		})
+	}
+	mux.HandleFunc("GET /static/{name}", serveLocalAsset)
+	mux.HandleFunc("GET /search", func(w http.ResponseWriter, r *http.Request) {
+		renderStudentSearch(w, r, store, studentStore)
+	})
+	if deps.Report != nil {
+		mux.HandleFunc("GET /dashboard", func(w http.ResponseWriter, r *http.Request) {
+			renderDashboard(w, r, store, deps.Report)
+		})
+	}
+	if deps.Management != nil {
+		mux.HandleFunc("GET /manage", func(w http.ResponseWriter, r *http.Request) {
+			renderManagement(w, r, store, studentStore, deps.Management, token)
+		})
+		mux.HandleFunc("POST /manage/groups/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
+			applyManagementAction(w, r, deps.Management, token, "groups")
+		})
+		mux.HandleFunc("POST /manage/students/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
+			applyManagementAction(w, r, deps.Management, token, "students")
+		})
+	}
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		renderHome(w, r, store, token, "", "", http.StatusOK)
 	})
@@ -173,6 +225,18 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	mux.HandleFunc("POST /groups/{id}/students", func(w http.ResponseWriter, r *http.Request) {
 		createStudentFromForm(w, r, store, studentStore, token, deps.Requirements)
 	})
+	if sheetImporter, ok := deps.Workbook.(SheetWorkbookImporter); ok {
+		previews := newPreviewStore()
+		mux.HandleFunc("POST /groups/{id}/import/preview", func(w http.ResponseWriter, r *http.Request) {
+			previewUpload(w, r, store, previews, token)
+		})
+		mux.HandleFunc("POST /groups/{id}/import/preview/sheet", func(w http.ResponseWriter, r *http.Request) {
+			previewSelectSheet(w, r, store, previews, token)
+		})
+		mux.HandleFunc("POST /groups/{id}/import/commit", func(w http.ResponseWriter, r *http.Request) {
+			previewCommit(w, r, store, previews, sheetImporter, token)
+		})
+	}
 	if deps.Workbook != nil {
 		mux.HandleFunc("POST /groups/{id}/import", func(w http.ResponseWriter, r *http.Request) {
 			importStudentsFromWorkbook(w, r, store, deps.Workbook, token)
@@ -189,6 +253,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		})
 	}
 	if deps.Documents != nil {
+		if deps.Documents.Thesis != nil {
+			mux.HandleFunc("POST /groups/{id}/students/{student}/topic", func(w http.ResponseWriter, r *http.Request) {
+				saveThesisTopic(w, r, store, studentStore, deps.Documents, token)
+			})
+		}
 		mux.HandleFunc("GET /groups/{id}/students/{student}", func(w http.ResponseWriter, r *http.Request) {
 			renderDocuments(w, r, store, studentStore, deps.Documents, token)
 		})
@@ -258,6 +327,18 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Browser mutations are blocked during backup export, preventing an
+		// inconsistent archive of changes initiated by this application UI.
+		// RU: Во время экспорта запросы POST ожидают завершения снимка.
+		if r.Method == http.MethodPost {
+			if r.URL.Path == "/settings/backup" {
+				backupGate.Lock()
+				defer backupGate.Unlock()
+			} else {
+				backupGate.RLock()
+				defer backupGate.RUnlock()
+			}
+		}
 		mux.ServeHTTP(w, r)
 	}), nil
 }

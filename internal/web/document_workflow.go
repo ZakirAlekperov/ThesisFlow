@@ -16,6 +16,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 )
 
 // DocumentServices coordinates document files and reviews using existing stores.
@@ -25,6 +26,7 @@ type DocumentServices struct {
 	Statuses     *materials.Repository
 	Versions     *fileversions.Store
 	Reviews      *review.Service
+	Thesis       *thesis.Repository
 }
 
 type documentItem struct {
@@ -34,14 +36,24 @@ type documentItem struct {
 }
 
 type documentPage struct {
-	FullName  string
-	GroupID   int64
-	StudentID int64
-	CSRFToken string
-	Documents []documentItem
+	FullName     string
+	GroupID      int64
+	StudentID    int64
+	CSRFToken    string
+	Documents    []documentItem
+	ThesisTopic  string
+	CanEditTopic bool
+	OrderRef     string
 }
 
-var documentTemplate = template.Must(template.New("documents").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Материалы ВКР — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;max-width:850px;margin:35px auto;padding:0 16px;color:#202939;background:#f6f7fb}.panel{background:white;padding:20px;margin:16px 0;border:1px solid #ddd;border-radius:12px}label{display:block;margin:8px 0}button{margin:8px;padding:9px 15px;border:0;border-radius:6px;background:#214eaf;color:white}a{color:#214eaf}</style></head><body><a href="/groups/{{.GroupID}}">← К учебной группе</a><h1>Материалы ВКР: {{.FullName}}</h1>{{range .Documents}}<section class="panel"><h2>{{.Requirement.Title}}</h2><p>Срок: {{.Requirement.DueDate}} · Статус: {{.Status}}</p><form method="post" enctype="multipart/form-data" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.Requirement.ID}}/upload"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><label>Загрузить документ <input type="file" name="document" required></label><button type="submit">Загрузить</button></form>{{range .Versions}}<div><a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/download">{{.OriginalName}}</a><form method="post" style="display:inline" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/accept/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit">Принять</button></form><form method="post" style="display:inline" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/reject/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit">На доработку</button></form></div>{{end}}</section>{{else}}<p>Для студента ещё нет требований к документам.</p>{{end}}</body></html>`))
+var documentTemplate = template.Must(template.New("documents").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Материалы ВКР — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;max-width:850px;margin:35px auto;padding:0 16px;color:#202939;background:#f6f7fb}.panel{background:white;padding:20px;margin:16px 0;border:1px solid #ddd;border-radius:12px}label{display:block;margin:8px 0}button{margin:8px;padding:9px 15px;border:0;border-radius:6px;background:#214eaf;color:white}a{color:#214eaf}</style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script></head><body><a href="/groups/{{.GroupID}}">← К учебной группе</a><h1>Материалы ВКР: {{.FullName}}</h1>
+{{if .CanEditTopic}}<section class="panel"><h2>Тема ВКР и приказ</h2><p>Тема ВКР: {{if .ThesisTopic}}{{.ThesisTopic}}{{else}}ещё не утверждена{{end}}</p><p>Приказ: {{.OrderRef}}</p>
+<form method="post" action="/groups/{{.GroupID}}/students/{{.StudentID}}/topic">
+<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+<label>Утверждённая тема <input name="topic" value="{{.ThesisTopic}}" required></label>
+<label>Реквизиты нового приказа <input name="order_reference" value="{{.OrderRef}}" required></label>
+<button type="submit">Сохранить тему ВКР</button></form></section>{{end}}
+{{range .Documents}}<section class="panel"><h2>{{.Requirement.Title}}</h2><p>Срок: {{.Requirement.DueDate}} · Статус: {{.Status}}</p><form method="post" enctype="multipart/form-data" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.Requirement.ID}}/upload"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><label>Загрузить документ <input type="file" name="document" required></label><button type="submit">Загрузить</button></form>{{range .Versions}}<div><a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/download">{{.OriginalName}}</a><form method="post" style="display:inline" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/accept/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit">Принять</button></form><form method="post" style="display:inline" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/reject/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit">На доработку</button></form></div>{{end}}</section>{{else}}<p>Для студента ещё нет требований к документам.</p>{{end}}</body></html>`))
 
 // documentScope verifies route IDs against the group, student, and requirement.
 // RU: documentScope сверяет группу, студента и применимость документа.
@@ -127,6 +139,16 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		return
 	}
 	data := documentPage{FullName: title, GroupID: groupID, StudentID: studentID, CSRFToken: token}
+	if docs.Thesis != nil {
+		record, err := docs.Thesis.Get(r.Context(), studentID)
+		if err != nil {
+			documentError(w, r, err)
+			return
+		}
+		data.ThesisTopic = record.Topic
+		data.CanEditTopic = true
+		data.OrderRef = record.OrderReference
+	}
 	for _, requirement := range requirementsList {
 		status, err := docs.Statuses.Get(r.Context(), studentID, requirement.ID)
 		if err != nil {

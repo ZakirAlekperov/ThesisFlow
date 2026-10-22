@@ -79,7 +79,7 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     .student-name { font-weight: 600; overflow-wrap: anywhere; }
     .student-id, .empty { color: #687488; }
     .empty { line-height: 1.6; }
-  </style>
+  </style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 </head>
 <body>
   <main>
@@ -91,6 +91,7 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     <h1>{{.Group.Name}}</h1>
     <p class="subtitle">Список студентов учебной группы.</p>
     <p><a href="/groups/{{.Group.ID}}/report">Печатная ведомость группы</a></p>
+    <p><a href="/groups/{{.Group.ID}}/matrix">Таблица сдачи документов группы</a></p>
     <section class="panel" aria-labelledby="students-heading">
       <h2 id="students-heading">Студенты</h2>
       <form class="student-form" action="/groups/{{.Group.ID}}/students" method="post">
@@ -124,7 +125,8 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
         <input id="xlsx-id-column" type="text" name="id_header" value="Учебный ID" required>
         <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
         <p class="import-hint">Заголовки должны совпадать с первой строкой первого листа Excel. Если обнаружена ошибка, ни один студент из файла не будет добавлен. Максимальный размер — 10 МиБ.</p>
-        <button type="submit">Импортировать студентов</button>
+        <button type="submit" formaction="/groups/{{.Group.ID}}/import/preview">Предпросмотр Excel перед импортом</button>
+        <button type="submit">Импортировать сразу (без предпросмотра)</button>
       </form>
     </section>
     <section class="panel" aria-labelledby="requirements-heading">

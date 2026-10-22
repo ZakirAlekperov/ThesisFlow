@@ -28,6 +28,23 @@ func (s Service) ImportFile(ctx context.Context, groupID int64, data []byte, nam
 	if err != nil {
 		return 0, err
 	}
+	return s.importRows(ctx, groupID, rows, nameHeader, idHeader)
+}
+
+// ImportSelected imports only the chosen visible worksheet after matching its
+// first-row column headings. No rows are saved on validation failure.
+// RU: ImportSelected импортирует только указанный лист по заголовкам.
+func (s Service) ImportSelected(ctx context.Context, groupID int64, data []byte, sheetName, nameHeader, idHeader string) (int, error) {
+	rows, err := ReadNamed(data, sheetName)
+	if err != nil {
+		return 0, err
+	}
+	return s.importRows(ctx, groupID, rows, nameHeader, idHeader)
+}
+
+// importRows shares the same atomic validation path for all worksheet readers.
+// RU: importRows объединяет проверку и атомарную запись для всех вкладок.
+func (s Service) importRows(ctx context.Context, groupID int64, rows [][]string, nameHeader, idHeader string) (int, error) {
 	if len(rows) == 0 {
 		return 0, ErrMissingColumn
 	}

@@ -42,8 +42,6 @@ func Apply(ctx context.Context, db *sql.DB) error {
 	}
 	if version == 0 {
 		statements := []string{
-			"ALTER TABLE student_groups ADD COLUMN archived_at TEXT",
-			"ALTER TABLE students ADD COLUMN archived_at TEXT",
 			`CREATE TABLE IF NOT EXISTS thesis_records (
        student_id INTEGER PRIMARY KEY REFERENCES students(id) ON DELETE RESTRICT,
        topic TEXT NOT NULL DEFAULT '',
@@ -51,6 +49,20 @@ func Apply(ctx context.Context, db *sql.DB) error {
        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
    )`,
 			"PRAGMA user_version = 1",
+		}
+		// Previously created and freshly initialized schemas may differ.
+		// RU: Добавляем поля только если их ещё нет в старой базе.
+		for _, table := range []string{"student_groups", "students"} {
+			query := "SELECT COUNT(*) FROM pragma_table_info('" + table + "') WHERE name='archived_at'"
+			var present int
+			if err := tx.QueryRowContext(ctx, query).Scan(&present); err != nil {
+				return fmt.Errorf("inspect archive field: %w", err)
+			}
+			if present == 0 {
+				if _, err := tx.ExecContext(ctx, "ALTER TABLE "+table+" ADD COLUMN archived_at TEXT"); err != nil {
+					return fmt.Errorf("extend archive fields: %w", err)
+				}
+			}
 		}
 		for _, statement := range statements {
 			if _, err := tx.ExecContext(ctx, statement); err != nil {
