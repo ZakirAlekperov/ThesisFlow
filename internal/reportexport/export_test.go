@@ -99,6 +99,9 @@ func TestWriteXLSXProducesValidOOXMLWorkbook(t *testing.T) {
 	if !strings.Contains(body, "=1+1") || strings.Contains(body, "<f>") || strings.Contains(body, "<f ") {
 		t.Fatal("user data is not safe literal text in XLSX")
 	}
+	if !strings.Contains(body, `<c r="G2" s="0"><v>0</v></c>`) {
+		t.Error("overdue count should be numeric Excel cell, not text")
+	}
 	if !strings.Contains(body, "autoFilter") || !strings.Contains(body, "pane") {
 		t.Error("styles or frozen header missing")
 	}
