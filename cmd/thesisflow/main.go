@@ -282,3 +282,13 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// recoveryRoot makes every browser-uploaded recovery visible in the same
+// trusted per-user catalog even when a recovered workspace is currently open.
+// RU: Восстановленные архивы всегда сохраняются в исходный каталог выбора.
+func recoveryRoot(selection *workspaceselect.Service, databasePath string) string {
+	if selection != nil {
+		return filepath.Join(selection.Root, "restores")
+	}
+	return filepath.Join(filepath.Dir(databasePath), "restores")
+}
