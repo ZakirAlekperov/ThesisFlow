@@ -153,6 +153,9 @@ type Dependencies struct {
 	Matrix       MatrixProvider
 	ReviewQueue  ReviewQueueReader
 	Analytics    AnalyticsProvider
+	Profiles     ProfileManager
+	Schedule     ScheduleManager
+	Assets       AssetLibrary
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -179,6 +182,29 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	var backupGate sync.RWMutex
 
 	mux := http.NewServeMux()
+
+	if deps.Profiles != nil {
+		mux.HandleFunc("GET /profiles",func(w http.ResponseWriter,r *http.Request){profilesIndex(w,r,deps.Profiles,token)})
+		mux.HandleFunc("POST /profiles",func(w http.ResponseWriter,r *http.Request){createProfile(w,r,deps.Profiles,token)})
+		mux.HandleFunc("GET /profiles/{id}",func(w http.ResponseWriter,r *http.Request){showProfile(w,r,deps.Profiles,token)})
+		mux.HandleFunc("POST /profiles/{id}/revise",func(w http.ResponseWriter,r *http.Request){reviseProfile(w,r,deps.Profiles,token)})
+		mux.HandleFunc("GET /groups/{id}/select-profile",func(w http.ResponseWriter,r *http.Request){selectGroupProfile(w,r,deps.Profiles)})
+		mux.HandleFunc("GET /groups/{id}/profile-preview",func(w http.ResponseWriter,r *http.Request){previewGroupProfile(w,r,deps.Profiles,token)})
+		mux.HandleFunc("POST /groups/{id}/apply-profile",func(w http.ResponseWriter,r *http.Request){applyGroupProfile(w,r,deps.Profiles,token)})
+	}
+	if deps.Schedule != nil {
+		mux.HandleFunc("GET /calendar",func(w http.ResponseWriter,r *http.Request){showCalendar(w,r,deps.Schedule,token)})
+		mux.HandleFunc("POST /calendar/override",func(w http.ResponseWriter,r *http.Request){applyIndividualDeadline(w,r,deps.Schedule,token)})
+		mux.HandleFunc("GET /groups/{id}/deadlines",func(w http.ResponseWriter,r *http.Request){groupDeadlines(w,r,deps.Schedule,token)})
+		mux.HandleFunc("POST /groups/{id}/deadlines/preview",func(w http.ResponseWriter,r *http.Request){previewDeadlines(w,r,deps.Schedule,token)})
+		mux.HandleFunc("POST /groups/{id}/deadlines/commit",func(w http.ResponseWriter,r *http.Request){commitDeadlines(w,r,deps.Schedule,token)})
+	}
+	if deps.Assets != nil {
+		mux.HandleFunc("GET /assets",func(w http.ResponseWriter,r *http.Request){showAssets(w,r,deps.Assets,token)})
+		mux.HandleFunc("POST /assets",func(w http.ResponseWriter,r *http.Request){createAsset(w,r,deps.Assets,token)})
+		mux.HandleFunc("POST /assets/{id}/upload",func(w http.ResponseWriter,r *http.Request){uploadAsset(w,r,deps.Assets,token)})
+		mux.HandleFunc("GET /assets/{id}/versions/{version}",func(w http.ResponseWriter,r *http.Request){downloadAsset(w,r,deps.Assets)})
+	}
 	if deps.Analytics != nil {
 		mux.HandleFunc("GET /reports", func(w http.ResponseWriter, r *http.Request) {
 			renderAnalytics(w, r, store, deps.Analytics, false)
