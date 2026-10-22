@@ -117,3 +117,18 @@ func TestWriteXLSXRejectsInvalidRowsAndNames(t *testing.T) {
 		}
 	}
 }
+
+
+// TestEscapeTextRejectsInvalidXMLCharacters checks damaged imported labels
+// cannot corrupt exported workbooks even when they are otherwise valid UTF-8.
+// RU: Недопустимые кодовые точки не попадают в XML-файлы Excel.
+func TestEscapeTextRejectsInvalidXMLCharacters(t *testing.T) {
+	value := escapeText("ВКР\x00\uFFFE\uFFFF <глава>")
+	if strings.Contains(value, "\x00") || strings.Contains(value, "\uFFFE") ||
+		strings.Contains(value, "\uFFFF") {
+		t.Fatalf("illegal XML codepoint escaped into workbook: %q", value)
+	}
+	if !strings.Contains(value, "&lt;глава&gt;") {
+		t.Fatalf("user title not escaped: %q", value)
+	}
+}
