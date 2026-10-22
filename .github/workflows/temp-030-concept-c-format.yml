@@ -1,0 +1,27 @@
+name: Temporary ThesisFlow concept C formatter
+on:
+  push:
+    branches: [feature/0.3.0-ui-concept-c]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.3.0-ui-concept-c
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Run gofmt
+        run: |
+          gofmt -w internal/web/concept_c_theme_test.go internal/web/concept_c_preview_test.go internal/web/import_preview.go internal/web/student_page.go internal/web/templates.go
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add internal/web/
+            git commit -m "style: gofmt concept C"
+            git push origin HEAD:feature/0.3.0-ui-concept-c
+          fi
