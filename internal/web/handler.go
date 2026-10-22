@@ -202,6 +202,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		})
 	}
 	if deps.Documents != nil {
+		if deps.Documents.Thesis != nil {
+			mux.HandleFunc("POST /groups/{id}/students/{student}/topic", func(w http.ResponseWriter, r *http.Request) {
+				saveThesisTopic(w, r, store, studentStore, deps.Documents, token)
+			})
+		}
 		mux.HandleFunc("GET /groups/{id}/students/{student}", func(w http.ResponseWriter, r *http.Request) {
 			renderDocuments(w, r, store, studentStore, deps.Documents, token)
 		})
