@@ -57,6 +57,7 @@ var dashboardTemplate = template.Must(template.New("dashboard").Parse(`<!doctype
 </head><body><nav class="links"><a href="/">Группы</a><a href="/search">Поиск</a><a href="/manage">Управление</a><a href="/templates">Шаблоны</a> <a href="/settings">Настройки</a></nav>
 <h1>Панель преподавателя</h1>
 <p><a href="/reviews">Открыть очередь документов на проверку →</a></p>
+<p><a href="/reports">Аналитика ВКР и выгрузки CSV / Excel →</a></p>
 <section class="metrics" aria-label="Сводка по ВКР">
 <div class="panel">Студентов<div class="value">{{.TotalStudents}}</div></div>
 <div class="panel">Документов требуется<div class="value">{{.Required}}</div></div>

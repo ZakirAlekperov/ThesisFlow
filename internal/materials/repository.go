@@ -240,3 +240,43 @@ func (r *Repository) History(ctx context.Context, studentID, requirementID int64
 	}
 	return result, nil
 }
+
+// GroupStatuses reads all material statuses for one academic group with a
+// single indexed query. Missing pairs are omitted and interpreted as Missing
+// by the caller; no query runs for every student/requirement combination.
+// RU: Все статусы группы читаются одним запросом без N+1.
+func (r *Repository) GroupStatuses(ctx context.Context, groupID int64) (map[[2]int64]Status, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if groupID <= 0 {
+		return nil, ErrInvalidScope
+	}
+	const query = `SELECT m.student_id,m.requirement_id,m.status
+		FROM material_status m
+		JOIN students s ON s.id=m.student_id AND s.group_id=?
+		JOIN requirements req ON req.id=m.requirement_id
+			AND req.group_id=s.group_id
+			AND (req.student_id IS NULL OR req.student_id=s.id)`
+	rows, err := r.db.QueryContext(ctx, query, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("query group statuses: %w", err)
+	}
+	defer rows.Close()
+	result := make(map[[2]int64]Status)
+	for rows.Next() {
+		var studentID, requirementID int64
+		var status Status
+		if err := rows.Scan(&studentID, &requirementID, &status); err != nil {
+			return nil, fmt.Errorf("scan group statuses: %w", err)
+		}
+		if !validStatus(status) {
+			return nil, fmt.Errorf("unknown stored material status: %q", status)
+		}
+		result[[2]int64{studentID, requirementID}] = status
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate group statuses: %w", err)
+	}
+	return result, nil
+}

@@ -67,15 +67,21 @@ func (s *Service) Group(ctx context.Context, groupID int64) (Matrix, error) {
 	if err != nil {
 		return Matrix{}, fmt.Errorf("list matrix requirements: %w", err)
 	}
+	// A single status read replaces N×M individual SQLite queries.
+	// RU: На всю группу выполняется один запрос статусов.
+	statuses, err := s.Materials.GroupStatuses(ctx, groupID)
+	if err != nil {
+		return Matrix{}, fmt.Errorf("read matrix group statuses: %w", err)
+	}
 	result := Matrix{GroupID: groupID, Requirements: required, Rows: make([]Row, 0, len(people))}
 	for _, person := range people {
 		row := Row{Student: person, Cells: make([]Cell, 0, len(required))}
 		for _, rule := range required {
-			entry, err := s.Materials.Get(ctx, person.ID, rule.ID)
-			if err != nil {
-				return Matrix{}, fmt.Errorf("read matrix status: %w", err)
+			status, ok := statuses[[2]int64{person.ID, rule.ID}]
+			if !ok {
+				status = materials.Missing
 			}
-			row.Cells = append(row.Cells, Cell{RequirementID: rule.ID, Status: entry.Status})
+			row.Cells = append(row.Cells, Cell{RequirementID: rule.ID, Status: status})
 		}
 		result.Rows = append(result.Rows, row)
 	}
