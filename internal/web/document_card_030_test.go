@@ -10,7 +10,7 @@ import (
     "strings"
     "testing"
 
-    "github.com/ZakirAlekperov/ThesisFlow/internal/materials"
+    "net/url"
 )
 
 // TestThesisWorkspaceSummary verifies that the card starts with a useful
@@ -62,7 +62,15 @@ func TestThesisWorkspaceReflectsRealStatuses(t *testing.T) {
     }
     list, err := versions.List(context.Background(), studentID, requirementID)
     if err != nil || len(list) != 1 { t.Fatalf("versions = %v, %v", list, err) }
-    if _, err := statuses.Set(context.Background(), studentID, requirementID, materials.Accepted); err != nil { t.Fatal(err) }
+    values := url.Values{"csrf_token": {token}}
+    approveURL := fmt.Sprintf("%s/documents/%d/accept/%d", page, requirementID, list[0].ID)
+    approve := httptest.NewRequest(http.MethodPost, approveURL, strings.NewReader(values.Encode()))
+    approve.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+    rec = httptest.NewRecorder()
+    h.ServeHTTP(rec, approve)
+    if rec.Code != http.StatusSeeOther { t.Fatalf("accept = %d: %s", rec.Code, rec.Body.String()) }
+    entry, err := statuses.Get(context.Background(), studentID, requirementID)
+    if err != nil || string(entry.Status) != "Accepted" { t.Fatalf("stored approval: %+v %v", entry, err) }
     rec = httptest.NewRecorder()
     h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, page, nil))
     if !strings.Contains(rec.Body.String(), "1 из 1 принято") { t.Errorf("accepted counter not updated: %s", rec.Body.String()) }
