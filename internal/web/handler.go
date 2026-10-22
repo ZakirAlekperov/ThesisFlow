@@ -148,6 +148,7 @@ type Dependencies struct {
 	Management   RecordManager
 	Backup       BackupExporter
 	Restore      BackupRestorer
+	Doctor       WorkspaceDoctor
 	Matrix       MatrixProvider
 	ReviewQueue  ReviewQueueReader
 	Analytics    AnalyticsProvider
@@ -205,6 +206,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	if deps.Matrix != nil {
 		mux.HandleFunc("GET /groups/{id}/matrix", func(w http.ResponseWriter, r *http.Request) {
 			renderGroupMatrix(w, r, store, deps.Matrix)
+		})
+	}
+	if deps.Doctor != nil {
+		mux.HandleFunc("GET /settings/health",func(w http.ResponseWriter,r *http.Request){
+			renderWorkspaceHealth(w,r,deps.Doctor)
 		})
 	}
 	if deps.Backup != nil || deps.Restore != nil {
