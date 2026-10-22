@@ -113,6 +113,16 @@ func Export(ctx context.Context, db *sql.DB, storageDir, destination string) err
 	if err := checkNewPath(destination); err != nil {
 		return err
 	}
+	// Do not claim that a ZIP is a valid backup when its source workspace
+	// already contains unresolved intents or corrupted approved bytes.
+	// RU: Перед снимком проверяем файлы и незавершённые приёмки.
+	audit, err := workspace.Check(ctx, db, storageDir)
+	if err != nil {
+		return fmt.Errorf("backup preflight: %w", err)
+	}
+	if !audit.Healthy() {
+		return fmt.Errorf("%w: %d preflight integrity issues", ErrUnsafeArchive, len(audit.Issues))
+	}
 	workdir, err := os.MkdirTemp("", "thesisflow-snapshot-*")
 	if err != nil {
 		return fmt.Errorf("create snapshot directory: %w", err)
