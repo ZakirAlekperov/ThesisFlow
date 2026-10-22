@@ -33,8 +33,8 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
-	"github.com/ZakirAlekperov/ThesisFlow/internal/workspaceselect"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspaceselect"
 )
 
 // localPort asks the OS to choose a free local port.
