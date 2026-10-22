@@ -149,3 +149,62 @@ of SQL commit. Linux/macOS parent-directory fsync is included, while
 Windows durability limitations remain documented. Multi-process locking,
 physical power-loss trials and safe workspace activation are still
 outstanding before full 0.6.0 release readiness.
+
+
+## Дополнительный инкремент — отдельное рабочее пространство и блокировка
+
+Изменения следующего кодового PR поверх main:
+
+- При каждом штатном запуске приложение удерживает **межпроцессную
+  блокировку** пользовательской папки до остановки сервера. Это
+  предотвращает одновременное редактирование одной SQLite двумя
+  экземплярами новой версии ThesisFlow. Блокировка ОС снимается при
+  завершении процесса; файл `.thesisflow.lock` намеренно не удаляется.
+- Внешняя команда `thesisflow backup export` отказывается работать,
+  пока веб-приложение владеет этой папкой. Резервное копирование через
+  встроенный GUI остаётся доступным внутри работающего процесса.
+- Команда `thesisflow workspace inspect <directory>` проверяет
+  существующий восстановленный каталог, не создаёт отсутствующую SQLite,
+  сверяет SQL/файлы и сообщает результат без имён студентов.
+- Команда `thesisflow workspace run <directory>` запускает браузерный
+  интерфейс **из выбранной папки**, а не из папки пользователя по
+  умолчанию. Это действие работает только для данного запуска.
+- До запуска проверяются структура каталогов, SQL-целостность и
+  поддерживаемость схемы. После разрешения аварийных операций выполняется
+  полный файловый аудит до начала HTTP-обслуживания.
+- Отсутствующая, повреждённая или слишком новая база, символические ссылки
+  на файл БД и чужие блокировки не приводят к созданию новой пустой БД
+  в месте восстановленной копии.
+- **Без перезаписи и без изменения настройки** рабочего пространства по
+  умолчанию. Это альтернатива опасной подмене файла SQLite при работающем
+  приложении, а не полностью автоматический мастер переключения.
+- Для копии на другом компьютере сначала перенесите проверенный ZIP,
+  затем восстановите его в новый каталог через `backup restore`.
+  Не запускайте разные версии приложения одновременно с одним каталогом.
+- Блокировки кооперативные: сторонние программы, старые версии
+  ThesisFlow без этой блокировки и злонамеренные процессы с правами того
+  же пользователя не обязаны её соблюдать.
+- Файловая блокировка не заменяет резервное копирование, журнал аварийных
+  операций и тесты с физическим отключением питания.
+
+### Типичный сценарий
+
+```text
+thesisflow backup restore copy.zip /path/to/recovered
+thesisflow workspace inspect /path/to/recovered
+thesisflow workspace run /path/to/recovered
+```
+
+После проверки восстановленной папки закройте её экземпляр обычным
+способом. Для возврата к привычным данным запускайте ThesisFlow без
+аргументов. Обе рабочие папки сохраняются.
+
+### English
+
+An operating-system advisory file lock now protects the complete server
+lifetime and prevents a second ThesisFlow process (or external CLI export)
+from accessing the same workspace concurrently. A teacher can inspect
+an existing restored folder and explicitly run that **separate** workspace,
+with preflight SQLite checks and a post-journal recovery file audit.
+No active database is overwritten, no global preference is switched, and
+no unsupported future schema is opened.
