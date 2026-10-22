@@ -17,7 +17,7 @@ jobs:
           cache: false
       - name: Format Go changes
         run: |
-          gofmt -w internal/reviewqueue/repository.go internal/web/review_queue_page.go internal/web/review_queue_040_test.go internal/web/document_preview.go internal/web/document_preview_040_test.go internal/web/review_print.go internal/web/handler.go internal/web/document_workflow.go internal/web/document_card.go internal/web/dashboard.go internal/web/student_page.go cmd/thesisflow/main.go
+          gofmt -w internal/reviewqueue/repository.go internal/web/review_queue_page.go internal/web/review_queue_040_test.go internal/web/document_preview.go internal/web/document_preview_040_test.go internal/web/review_print.go internal/web/review_print_040_test.go internal/web/handler.go internal/web/document_workflow.go internal/web/document_card.go internal/web/dashboard.go internal/web/student_page.go cmd/thesisflow/main.go
           git config user.name "ThesisFlow CI"
           git config user.email "thesisflow-ci@users.noreply.github.com"
           if ! git diff --quiet; then
