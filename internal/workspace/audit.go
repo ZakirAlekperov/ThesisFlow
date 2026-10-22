@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/integrity"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storagepath"
 )
 
 const maxProjectedSize = 64 << 20
@@ -68,29 +69,19 @@ func tableExists(ctx context.Context, db *sql.DB, table string) (bool, error) {
 // paths, traversal, backslashes, colons and symbolic links in every component.
 // RU: Проверяем путь и все компоненты на символические ссылки.
 func canonicalPath(root, relative string) (string, error) {
-	if !filepath.IsLocal(relative) || strings.ContainsAny(relative, "\\:") ||
-		filepath.Clean(relative) != relative || strings.HasPrefix(relative, ".") {
-		return "", errors.New("unsafe relative path")
-	}
+	normalized, err := storagepath.Normalize(relative)
+	if err != nil {return "",err}
 	current := root
-	for _, part := range strings.Split(filepath.Clean(relative), string(filepath.Separator)) {
+	for _, part := range strings.Split(normalized, "/") {
 		current = filepath.Join(current, part)
-		entry, err := os.Lstat(current)
-		if err != nil {
-			return "", err
-		}
-		if entry.Mode()&os.ModeSymlink != 0 {
-			return "", errors.New("symlink component")
-		}
+		info, err := os.Lstat(current)
+		if err != nil {return "",err}
+		if info.Mode()&os.ModeSymlink != 0 {return "",errors.New("symlink component")}
 	}
-	entry, err := os.Lstat(current)
-	if err != nil {
-		return "", err
-	}
-	if !entry.Mode().IsRegular() {
-		return "", errors.New("not a regular file")
-	}
-	return current, nil
+	info, err := os.Lstat(current)
+	if err != nil {return "",err}
+	if !info.Mode().IsRegular() {return "",errors.New("not a regular file")}
+	return current,nil
 }
 
 func hashFile(path string, limit int64) (int64, string, error) {
