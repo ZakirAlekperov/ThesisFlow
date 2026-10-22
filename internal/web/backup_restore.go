@@ -23,7 +23,7 @@ type BackupRestorer interface {
 var restoredTemplate = template.Must(template.New("restored").Parse(`<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><title>Восстановление — ThesisFlow</title></head>
 <body><a href="/settings">← Настройки</a><h1>Копия восстановлена</h1>
-<p>Новый каталог: <code>{{.}}</code></p><p>Рабочие данные не заменены. Проверьте содержимое новой папки.</p>
+<p>Новый каталог: <code>{{.}}</code></p><p>Рабочие данные не заменены. Проверьте содержимое новой папки.</p><p><a href="/settings/workspaces">Перейти к выбору восстановленного рабочего пространства →</a></p>
 </body></html>`))
 
 // restoreBackup handles a bounded CSRF-protected multipart ZIP upload.
