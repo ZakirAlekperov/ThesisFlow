@@ -37,7 +37,9 @@ func runBackupCommand(ctx context.Context, workspace string, args []string, outp
 		// in-browser export already uses its own running process lock.
 		// RU: Нельзя делать внешнюю копию параллельно активной записи.
 		lock, err := workspacelock.Acquire(workspace)
-		if err != nil {return err}
+		if err != nil {
+			return err
+		}
 		defer lock.Close()
 		db, err := sqlite.Open(ctx, databasePath)
 		if err != nil {

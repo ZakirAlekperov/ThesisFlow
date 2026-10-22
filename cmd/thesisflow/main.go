@@ -186,8 +186,12 @@ func startWithPreflight(ctx context.Context, output io.Writer, port, databasePat
 	// RU: Сверяем версии и принятые копии после восстановления операций.
 	if verifyExisting {
 		report, err := workspace.Check(ctx, db, versions.Root)
-		if err != nil {return fmt.Errorf("validate restored workspace: %w", err)}
-		if !report.Healthy() {return fmt.Errorf("restored workspace has %d integrity problems", len(report.Issues))}
+		if err != nil {
+			return fmt.Errorf("validate restored workspace: %w", err)
+		}
+		if !report.Healthy() {
+			return fmt.Errorf("restored workspace has %d integrity problems", len(report.Issues))
+		}
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
