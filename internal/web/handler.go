@@ -278,7 +278,7 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		mux.HandleFunc("POST /groups/{id}/students/{student}/documents/batch", func(w http.ResponseWriter, r *http.Request) {
 			batchUploadDocuments(w, r, store, studentStore, deps.Documents, token)
 		})
-		for _, operation := range []string{"upload", "accept", "reject", "comment", "download"} {
+		for _, operation := range []string{"upload", "accept", "reject", "comment", "download", "preview"} {
 			action := operation
 			switch action {
 			case "upload":
@@ -287,6 +287,10 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 				})
 			case "download":
 				mux.HandleFunc("GET /groups/{id}/students/{student}/documents/{requirement}/versions/{version}/download", func(w http.ResponseWriter, r *http.Request) {
+					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
+				})
+			case "preview":
+				mux.HandleFunc("GET /groups/{id}/students/{student}/documents/{requirement}/versions/{version}/preview", func(w http.ResponseWriter, r *http.Request) {
 					handleDocumentAction(w, r, store, studentStore, deps.Documents, token, action)
 				})
 			default:
