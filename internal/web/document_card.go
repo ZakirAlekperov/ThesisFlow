@@ -69,6 +69,7 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Funcs(temp
   </nav>
   <h1>ВКР: {{.FullName}}</h1>
   <p class="intro muted">Группа: {{.GroupName}} · Учебный ID: {{.EducationalID}}</p>
+  <p><a href="/groups/{{.GroupID}}/students/{{.StudentID}}/reviews/print" target="_blank" rel="noopener">Печать журнала замечаний</a></p>
   {{if .Notice}}<p class="panel" role="status">{{.Notice}}</p>{{end}}
 
   <section class="panel" aria-labelledby="progress-title">
