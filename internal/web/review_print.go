@@ -24,6 +24,8 @@ type reviewPrintSection struct {
 }
 
 type reviewPrintData struct {
+	GroupID int64
+	StudentID int64
 	GroupName string
 	StudentName string
 	EducationalID string
@@ -43,7 +45,7 @@ h1{font-size:1.7rem}h2{font-size:1.1rem;border-bottom:1px solid #bbc6d3;padding-
 article{break-inside:avoid;margin:12px 0;border:1px solid #d0d8e4;border-radius:9px;padding:13px}
 pre{font:inherit;white-space:pre-wrap;overflow-wrap:anywhere}a{color:#225bb3}
 @page{size:A4;margin:18mm}@media print{body{margin:0;padding:0;max-width:none;color:#000}nav{display:none}article{border:1px solid #777}}</style>
-</head><body><nav><a href="javascript:history.back()">← Назад</a></nav>
+</head><body><nav><a href="/groups/{{.GroupID}}/students/{{.StudentID}}">← Назад</a></nav>
 <h1>Журнал рецензирования ВКР</h1>
 <p>Студент: <strong>{{.StudentName}}</strong><br>Учебный ID: {{.EducationalID}}<br>
 Группа: {{.GroupName}}<br>Сформировано: {{.GeneratedAt}}</p>
@@ -66,7 +68,7 @@ func renderStudentReviewPrint(w http.ResponseWriter, r *http.Request, groupStore
 	if err!=nil {documentError(w,r,err);return}
 	personList,err:=people.ListByGroup(r.Context(),groupID)
 	if err!=nil {documentError(w,r,err);return}
-	data:=reviewPrintData{GroupName:group.Name,GeneratedAt:time.Now().Format("02.01.2006 15:04")}
+	data:=reviewPrintData{GroupID:groupID,StudentID:studentID,GroupName:group.Name,GeneratedAt:time.Now().Format("02.01.2006 15:04")}
 	for _,s:=range personList {
 		if s.ID==studentID {data.StudentName=s.FullName;data.EducationalID=s.EducationalID;break}
 	}
