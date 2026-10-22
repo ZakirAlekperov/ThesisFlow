@@ -1,10 +1,10 @@
 package web
 
 import (
- "bytes"
  "html/template"
+ "context"
+ "fmt"
  "net/http"
- "strings"
 
  "github.com/ZakirAlekperov/ThesisFlow/internal/profiles"
 )
@@ -55,5 +55,3 @@ func profileExport(w http.ResponseWriter,r *http.Request,s ProfileManager){
  w.Header().Set("X-Content-Type-Options","nosniff")
  _,_=w.Write(raw)
 }
-var _=bytes.Buffer{}
-var _=strings.TrimSpace
