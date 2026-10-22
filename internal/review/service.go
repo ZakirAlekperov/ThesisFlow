@@ -311,12 +311,23 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 		if err := os.Rename(target, backup); err != nil {
 			return Accepted{}, fmt.Errorf("%w: protect previous approved bytes: %v", ErrPendingApproval, err)
 		}
+		// Persist protection of old accepted bytes before publishing new.
+		// RU: Журнал уже записан, каталог также синхронизируется.
+		if err := storagepath.SyncParent(backup); err != nil {
+			return Accepted{}, fmt.Errorf("%w: sync protected previous file: %v", ErrPendingApproval, err)
+		}
 		if err := interrupt("after_old_renamed"); err != nil {
 			return Accepted{}, err
 		}
 	}
 	if err := os.Rename(temporary, target); err != nil {
 		return Accepted{}, fmt.Errorf("%w: publish approved bytes: %v", ErrPendingApproval, err)
+	}
+	// Do not acknowledge a database commit before the file rename is durable
+	// on platforms where directory sync is available.
+	// RU: SQL commit следует за синхронизацией файла и каталога.
+	if err := storagepath.SyncParent(target); err != nil {
+		return Accepted{}, fmt.Errorf("%w: sync approved directory: %v", ErrPendingApproval, err)
 	}
 	if err := interrupt("after_publish"); err != nil {
 		return Accepted{}, err
