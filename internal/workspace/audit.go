@@ -267,5 +267,8 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 	if err := links.Close(); err != nil {
 		return Report{}, err
 	}
+	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+		return Report{}, fmt.Errorf("inventory unexpected files: %w", err)
+	}
 	return report, nil
 }
