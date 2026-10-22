@@ -13,6 +13,7 @@ import (
 	"html/template"
 	"mime"
 	"net/http"
+	"sync"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
 )
@@ -144,6 +145,7 @@ type Dependencies struct {
 	Report       ReportProvider
 	Documents    *DocumentServices
 	Management   RecordManager
+	Backup       BackupExporter
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -165,7 +167,19 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	}
 	token := base64.RawURLEncoding.EncodeToString(secret)
 
+	// Quiesce browser-initiated writes while making a SQLite+file snapshot.
+	// RU: При экспорте временно останавливаем изменения из браузера.
+	var backupGate sync.RWMutex
+
 	mux := http.NewServeMux()
+	if deps.Backup != nil {
+		mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
+			renderSettings(w, r, token)
+		})
+		mux.HandleFunc("POST /settings/backup", func(w http.ResponseWriter, r *http.Request) {
+			downloadBackup(w, r, token, deps.Backup)
+		})
+	}
 	mux.HandleFunc("GET /static/{name}", serveLocalAsset)
 	mux.HandleFunc("GET /search", func(w http.ResponseWriter, r *http.Request) {
 		renderStudentSearch(w, r, store, studentStore)
@@ -299,6 +313,18 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Browser mutations are blocked during backup export, preventing an
+		// inconsistent archive of changes initiated by this application UI.
+		// RU: Во время экспорта запросы POST ожидают завершения снимка.
+		if r.Method == http.MethodPost {
+			if r.URL.Path == "/settings/backup" {
+				backupGate.Lock()
+				defer backupGate.Unlock()
+			} else {
+				backupGate.RLock()
+				defer backupGate.RUnlock()
+			}
+		}
 		mux.ServeHTTP(w, r)
 	}), nil
 }
