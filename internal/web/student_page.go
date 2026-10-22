@@ -84,8 +84,11 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
 <body>
   <main>
     <nav class="tabs" aria-label="Разделы приложения">
-      <a href="/">Учебные группы</a>
+      <a href="/" aria-current="page">Учебные группы</a>
       <a href="/templates">Шаблоны</a>
+      <a href="/dashboard">Панель преподавателя</a>
+      <a href="/search">Поиск студентов</a>
+      <a href="/manage">Управление и архив</a>
     </nav>
     <a class="back" href="/">← Все учебные группы</a>
     <h1>{{.Group.Name}}</h1>
