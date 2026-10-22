@@ -64,6 +64,7 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
   </nav>
   <h1>ВКР: {{.FullName}}</h1>
   <p class="intro muted">Группа: {{.GroupName}} · Учебный ID: {{.EducationalID}}</p>
+  {{if .Notice}}<p class="panel" role="status">{{.Notice}}</p>{{end}}
 
   <section class="panel" aria-labelledby="progress-title">
     <h2 id="progress-title">Готовность работы</h2>
