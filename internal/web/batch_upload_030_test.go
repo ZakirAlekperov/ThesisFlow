@@ -12,7 +12,6 @@ import (
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
-	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 )
 
 type batchTestFile struct {
@@ -107,5 +106,3 @@ func TestBatchUploadRejectsWrongStudentScope(t *testing.T) {
 	if err != nil || len(list) != 0 { t.Fatalf("unexpected cross-scope file: %v %v", list, err) }
 }
 
-// Compile-time check that the storage version model used in assertions is real.
-var _ fileversions.Version
