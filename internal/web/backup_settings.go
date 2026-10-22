@@ -22,7 +22,7 @@ type BackupExporter interface {
 }
 
 type settingsData struct {
-	CSRFToken string
+	CSRFToken        string
 	SelectionEnabled bool
 }
 
@@ -55,7 +55,7 @@ var settingsTemplate = template.Must(template.New("settings").Parse(`<!doctype h
 // renderSettings serves a no-cache CSRF-protected settings page.
 // RU: renderSettings показывает настройки с защитой от кеширования токена.
 func renderSettings(w http.ResponseWriter, r *http.Request, token string, allowSelection ...bool) {
-	selectionEnabled := len(allowSelection)>0 && allowSelection[0]
+	selectionEnabled := len(allowSelection) > 0 && allowSelection[0]
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := settingsTemplate.Execute(w, settingsData{CSRFToken: token, SelectionEnabled: selectionEnabled}); err != nil {
 		// Template is static and pre-validated at startup.
