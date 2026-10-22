@@ -193,10 +193,14 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 	// A superseded submission must not be approved after a newer upload.
 	// RU: Принять разрешено только последнюю версию документа.
 	var latestVersion int64
-	if err:=s.DB.QueryRowContext(ctx,
+	if err := s.DB.QueryRowContext(ctx,
 		"SELECT COALESCE(MAX(id),0) FROM file_versions WHERE student_id=? AND requirement_id=?",
-		studentID,requirementID).Scan(&latestVersion);err!=nil{return Accepted{},err}
-	if latestVersion!=versionID{return Accepted{},ErrInvalidVersion}
+		studentID, requirementID).Scan(&latestVersion); err != nil {
+		return Accepted{}, err
+	}
+	if latestVersion != versionID {
+		return Accepted{}, ErrInvalidVersion
+	}
 	if fingerprint(data) != info.sha {
 		return Accepted{}, errors.New("document version checksum mismatch")
 	}
@@ -348,12 +352,14 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 	// preparation. If it won, recovery will put back the old projection.
 	// RU: Повторная проверка защищает от параллельной загрузки редакции.
 	var committedLatest int64
-	if err:=tx.QueryRowContext(ctx,
+	if err := tx.QueryRowContext(ctx,
 		"SELECT COALESCE(MAX(id),0) FROM file_versions WHERE student_id=? AND requirement_id=?",
-		studentID,requirementID).Scan(&committedLatest);err!=nil{
-		return Accepted{},fmt.Errorf("%w: confirm latest revision: %v",ErrPendingApproval,err)
+		studentID, requirementID).Scan(&committedLatest); err != nil {
+		return Accepted{}, fmt.Errorf("%w: confirm latest revision: %v", ErrPendingApproval, err)
 	}
-	if committedLatest!=versionID{return Accepted{},ErrPendingApproval}
+	if committedLatest != versionID {
+		return Accepted{}, ErrPendingApproval
+	}
 	now := s.Clock().UTC().Format(time.RFC3339Nano)
 	_, err = tx.ExecContext(ctx, `INSERT INTO accepted_files(
 	student_id,requirement_id,version_id,relative_path,accepted_at)
