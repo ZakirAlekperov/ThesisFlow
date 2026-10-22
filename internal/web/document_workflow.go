@@ -5,11 +5,11 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"mime"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
@@ -33,27 +33,39 @@ type documentItem struct {
 	Requirement requirements.Requirement
 	Status      string
 	Versions    []fileversions.Version
+	History     []documentHistoryItem
+	IsOverdue   bool
+}
+
+// documentHistoryItem is a read-only projection of a persisted material event.
+// RU: documentHistoryItem отображает сохранённое событие без изменения БД.
+type documentHistoryItem struct {
+	Status string
+	At     string
 }
 
 type documentPage struct {
-	FullName     string
-	GroupID      int64
-	StudentID    int64
-	CSRFToken    string
-	Documents    []documentItem
-	ThesisTopic  string
-	CanEditTopic bool
-	OrderRef     string
+	FullName      string
+	GroupName     string
+	EducationalID string
+	GroupID       int64
+	StudentID     int64
+	CSRFToken     string
+	Documents     []documentItem
+	ThesisTopic   string
+	CanEditTopic  bool
+	OrderRef      string
+	Total         int
+	Accepted      int
+	UnderReview   int
+	NeedsRevision int
+	Missing       int
+	Overdue       int
+	Progress      int
 }
 
-var documentTemplate = template.Must(template.New("documents").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Материалы ВКР — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;max-width:850px;margin:35px auto;padding:0 16px;color:#202939;background:#f6f7fb}.panel{background:white;padding:20px;margin:16px 0;border:1px solid #ddd;border-radius:12px}label{display:block;margin:8px 0}button{margin:8px;padding:9px 15px;border:0;border-radius:6px;background:#214eaf;color:white}a{color:#214eaf}</style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script></head><body><a href="/groups/{{.GroupID}}">← К учебной группе</a><h1>Материалы ВКР: {{.FullName}}</h1>
-{{if .CanEditTopic}}<section class="panel"><h2>Тема ВКР и приказ</h2><p>Тема ВКР: {{if .ThesisTopic}}{{.ThesisTopic}}{{else}}ещё не утверждена{{end}}</p><p>Приказ: {{.OrderRef}}</p>
-<form method="post" action="/groups/{{.GroupID}}/students/{{.StudentID}}/topic">
-<input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-<label>Утверждённая тема <input name="topic" value="{{.ThesisTopic}}" required></label>
-<label>Реквизиты нового приказа <input name="order_reference" value="{{.OrderRef}}" required></label>
-<button type="submit">Сохранить тему ВКР</button></form></section>{{end}}
-{{range .Documents}}<section class="panel"><h2>{{.Requirement.Title}}</h2><p>Срок: {{.Requirement.DueDate}} · Статус: {{.Status}}</p><form method="post" enctype="multipart/form-data" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.Requirement.ID}}/upload"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><label>Загрузить документ <input type="file" name="document" required></label><button type="submit">Загрузить</button></form>{{range .Versions}}<div><a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/download">{{.OriginalName}}</a><form method="post" style="display:inline" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/accept/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit">Принять</button></form><form method="post" style="display:inline" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/reject/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRFToken}}"><button type="submit">На доработку</button></form></div>{{end}}</section>{{else}}<p>Для студента ещё нет требований к документам.</p>{{end}}</body></html>`))
+// The separate template keeps the card layout readable and testable.
+// RU: Разметка карточки вынесена в отдельный Go-шаблон.
 
 // documentScope verifies route IDs against the group, student, and requirement.
 // RU: documentScope сверяет группу, студента и применимость документа.
@@ -121,15 +133,22 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		documentError(w, r, err)
 		return
 	}
+	group, err := findGroup(r.Context(), groups, groupID)
+	if err != nil {
+		documentError(w, r, err)
+		return
+	}
 	persons, err := people.ListByGroup(r.Context(), groupID)
 	if err != nil {
 		documentError(w, r, err)
 		return
 	}
 	title := ""
+	educationalID := ""
 	for _, person := range persons {
 		if person.ID == studentID {
 			title = person.FullName
+			educationalID = person.EducationalID
 			break
 		}
 	}
@@ -138,7 +157,7 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		documentError(w, r, err)
 		return
 	}
-	data := documentPage{FullName: title, GroupID: groupID, StudentID: studentID, CSRFToken: token}
+	data := documentPage{FullName: title, GroupName: group.Name, EducationalID: educationalID, GroupID: groupID, StudentID: studentID, CSRFToken: token}
 	if docs.Thesis != nil {
 		record, err := docs.Thesis.Get(r.Context(), studentID)
 		if err != nil {
@@ -160,8 +179,38 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 			documentError(w, r, err)
 			return
 		}
-		display := map[materials.Status]string{materials.Missing: "Не сдан", materials.UnderReview: "На проверке", materials.NeedsRevision: "На доработке", materials.Accepted: "Принят"}[status.Status]
-		data.Documents = append(data.Documents, documentItem{Requirement: requirement, Status: display, Versions: versions})
+		labels := map[materials.Status]string{materials.Missing: "Не сдан", materials.UnderReview: "На проверке", materials.NeedsRevision: "На доработке", materials.Accepted: "Принят"}
+		display := labels[status.Status]
+		item := documentItem{Requirement: requirement, Status: display, Versions: versions}
+		data.Total++
+		switch status.Status {
+		case materials.Accepted:
+			data.Accepted++
+		case materials.UnderReview:
+			data.UnderReview++
+		case materials.NeedsRevision:
+			data.NeedsRevision++
+		default:
+			data.Missing++
+		}
+		// Dates are stored as ISO calendar days, not timestamps.
+		// RU: Сроки — календарные даты; сравнение выполняется по местной дате.
+		if requirement.DueDate != "" && requirement.DueDate < time.Now().Format("2006-01-02") && status.Status != materials.Accepted {
+			item.IsOverdue = true
+			data.Overdue++
+		}
+		events, err := docs.Statuses.History(r.Context(), studentID, requirement.ID)
+		if err != nil {
+			documentError(w, r, err)
+			return
+		}
+		for _, event := range events {
+			item.History = append(item.History, documentHistoryItem{Status: labels[event.Status], At: event.At.Local().Format("02.01.2006 15:04")})
+		}
+		data.Documents = append(data.Documents, item)
+	}
+	if data.Total > 0 {
+		data.Progress = data.Accepted * 100 / data.Total
 	}
 	var b bytes.Buffer
 	if err := documentTemplate.Execute(&b, data); err != nil {
