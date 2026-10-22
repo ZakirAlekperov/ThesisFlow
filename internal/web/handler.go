@@ -190,6 +190,12 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		mux.HandleFunc("POST /profiles",func(w http.ResponseWriter,r *http.Request){createProfile(w,r,deps.Profiles,token)})
 		mux.HandleFunc("GET /profiles/{id}",func(w http.ResponseWriter,r *http.Request){showProfile(w,r,deps.Profiles,token)})
 		mux.HandleFunc("POST /profiles/{id}/revise",func(w http.ResponseWriter,r *http.Request){reviseProfile(w,r,deps.Profiles,token)})
+		mux.HandleFunc("GET /profiles/{id}/export",func(w http.ResponseWriter,r *http.Request){profileExport(w,r,deps.Profiles)})
+		mux.HandleFunc("GET /profiles/import",func(w http.ResponseWriter,r *http.Request){profileImportForm(w,r,token)})
+		mux.HandleFunc("POST /profiles/import/preview",func(w http.ResponseWriter,r *http.Request){profileImportPreview(w,r,token)})
+		if transfer,ok:=deps.Profiles.(portableProfileImport);ok{
+			mux.HandleFunc("POST /profiles/import/commit",func(w http.ResponseWriter,r *http.Request){profileImportCommit(w,r,transfer,token)})
+		}
 		mux.HandleFunc("GET /groups/{id}/select-profile",func(w http.ResponseWriter,r *http.Request){selectGroupProfile(w,r,deps.Profiles)})
 		mux.HandleFunc("GET /groups/{id}/profile-preview",func(w http.ResponseWriter,r *http.Request){previewGroupProfile(w,r,deps.Profiles,token)})
 		mux.HandleFunc("POST /groups/{id}/apply-profile",func(w http.ResponseWriter,r *http.Request){applyGroupProfile(w,r,deps.Profiles,token)})
