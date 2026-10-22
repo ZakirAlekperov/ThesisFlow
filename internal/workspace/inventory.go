@@ -8,7 +8,6 @@ import (
  "io/fs"
  "os"
  "path/filepath"
- "strings"
 
  "github.com/ZakirAlekperov/ThesisFlow/internal/storagepath"
 )
@@ -74,6 +73,3 @@ func inspectOrphans(ctx context.Context,db *sql.DB,root string,report *Report)er
  report.ExtraFiles=count
  return nil
 }
-
-// Keep strings explicitly used for future extension of portable root checks.
-var _ = strings.TrimSpace
