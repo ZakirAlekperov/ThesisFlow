@@ -5,6 +5,7 @@ package userassets
 
 import (
 	"bytes"
+	"archive/zip"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -56,7 +57,20 @@ func validateContent(filename string, data []byte) bool {
 	case ".pdf":
 		return bytes.HasPrefix(data, []byte("%PDF-"))
 	case ".docx", ".xlsx":
-		return len(data) > 4 && bytes.HasPrefix(data, []byte("PK\x03\x04"))
+		// Check the ZIP central directory and expected OOXML parts without
+		// extracting arbitrary paths or running macros.
+		// RU: Переименованный не-ZIP не является шаблоном DOCX/XLSX.
+		if !bytes.HasPrefix(data,[]byte("PK\x03\x04")){return false}
+		archive,err:=zip.NewReader(bytes.NewReader(data),int64(len(data)))
+		if err!=nil||len(archive.File)>3000{return false}
+		contentType:=false; mainPart:=false
+		expected:="word/document.xml"
+		if fileExtension(filename)==".xlsx"{expected="xl/workbook.xml"}
+		for _,entry:=range archive.File{
+			if entry.Name=="[Content_Types].xml"{contentType=true}
+			if entry.Name==expected{mainPart=true}
+		}
+		return contentType&&mainPart
 	default:
 		return false
 	}
