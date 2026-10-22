@@ -210,7 +210,7 @@ func ensureProjection(target string, intended []byte, known ...string) error {
 	if err := os.Rename(temp, target); err != nil {
 		return err
 	}
-	return nil
+	return storagepath.SyncParent(target)
 }
 
 func removeKnown(filename, expected string) error {
@@ -224,7 +224,8 @@ func removeKnown(filename, expected string) error {
 	if expected == "" || hash != expected {
 		return ErrRecoveryConflict
 	}
-	return os.Remove(filename)
+	if err := os.Remove(filename); err != nil {return err}
+	return storagepath.SyncParent(filename)
 }
 
 // RecoverPending resolves every durable approval intent using the committed
