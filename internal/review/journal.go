@@ -224,7 +224,9 @@ func removeKnown(filename, expected string) error {
 	if expected == "" || hash != expected {
 		return ErrRecoveryConflict
 	}
-	if err := os.Remove(filename); err != nil {return err}
+	if err := os.Remove(filename); err != nil {
+		return err
+	}
 	return storagepath.SyncParent(filename)
 }
 
