@@ -142,7 +142,7 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
     {{$doc := .}}
     <ol class="versions">
       {{range .Versions}}
-      <li>
+      <li id="version-{{.ID}}">
         <a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/download">{{.OriginalName}}</a>
         <span class="muted"> · {{.UploadedAt}} · {{.Size}} байт · Версия #{{.ID}}</span>
         {{if and (eq .ID $doc.LatestVersionID) (eq $doc.Status "На проверке")}}
