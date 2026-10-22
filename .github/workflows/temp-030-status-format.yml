@@ -1,0 +1,27 @@
+name: Temporary status formatter
+on:
+  push:
+    branches: [feature/0.3.0-status-freshness]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.3.0-status-freshness
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Format
+        run: |
+          gofmt -w internal/web/status_freshness_test.go internal/web/document_workflow.go internal/web/document_card.go
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add internal/web/
+            git commit -m "style: gofmt status regression"
+            git push origin HEAD:feature/0.3.0-status-freshness
+          fi
