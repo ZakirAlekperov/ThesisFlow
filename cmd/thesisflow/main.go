@@ -153,6 +153,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Workbook:     importxlsx.Service{DB: db},
 		Management:   management.NewRepository(db),
 		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
+		Restore:      workspaceRestore{root: filepath.Join(filepath.Dir(databasePath), "restores")},
 		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
