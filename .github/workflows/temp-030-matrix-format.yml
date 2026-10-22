@@ -1,0 +1,27 @@
+name: Temporary 0.3.0 matrix formatter
+on:
+  push:
+    branches: [feature/0.3.0-matrix-filters]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.3.0-matrix-filters
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Go formatting
+        run: |
+          gofmt -w internal/web/matrix_page.go internal/web/matrix_filters_030_test.go
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add internal/web/matrix_page.go internal/web/matrix_filters_030_test.go
+            git commit -m "style: gofmt 0.3.0 matrix filters"
+            git push origin HEAD:feature/0.3.0-matrix-filters
+          fi
