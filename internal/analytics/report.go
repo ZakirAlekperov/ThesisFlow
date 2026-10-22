@@ -128,8 +128,8 @@ func(r *Repository)Build(ctx context.Context,f Filter,now time.Time)(Report,erro
  f.Search=strings.TrimSpace(f.Search)
  if err:=CheckFilter(f);err!=nil{return Report{},err}
  result:=Report{Filter:f,GeneratedAt:now,Groups:make([]Group,0),Students:make([]Student,0),Documents:make([]Document,0)}
- const query=`SELECT g.id,g.name,s.id,s.full_name,s.educational_id,
- req.id,req.title,req.due_date,COALESCE(m.status,'missing'),
+ const query=`SELECT g.id,g.name,s.id,COALESCE(s.full_name,''),COALESCE(s.educational_id,''),
+ req.id,COALESCE(req.title,''),COALESCE(req.due_date,''),COALESCE(m.status,'missing'),
  CASE WHEN af.version_id IS NULL THEN 0 ELSE 1 END
  FROM student_groups g
  LEFT JOIN students s ON s.group_id=g.id AND s.archived_at IS NULL
@@ -142,7 +142,6 @@ func(r *Repository)Build(ctx context.Context,f Filter,now time.Time)(Report,erro
  rows,err:=r.DB.QueryContext(ctx,query,f.GroupID,f.GroupID)
  if err!=nil{return Report{},fmt.Errorf("query analytics: %w",err)}
  defer rows.Close()
- type groupKey struct{id int64;name string}
  groups:=make(map[int64]*Group)
  students:=make(map[int64]*Student)
  shownStudents:=make(map[int64]bool)
