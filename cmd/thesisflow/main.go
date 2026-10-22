@@ -18,6 +18,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/management"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
@@ -157,6 +158,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Restore:      workspaceRestore{root: filepath.Join(filepath.Dir(databasePath), "restores")},
 		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		ReviewQueue:  reviewqueue.New(db),
+		Analytics:    analytics.New(db),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
