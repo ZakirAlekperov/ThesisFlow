@@ -118,7 +118,6 @@ func TestWriteXLSXRejectsInvalidRowsAndNames(t *testing.T) {
 	}
 }
 
-
 // TestEscapeTextRejectsInvalidXMLCharacters checks damaged imported labels
 // cannot corrupt exported workbooks even when they are otherwise valid UTF-8.
 // RU: Недопустимые кодовые точки не попадают в XML-файлы Excel.
