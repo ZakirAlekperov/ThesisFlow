@@ -204,7 +204,9 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 	// RU: Читаем исторические пути Windows как переносимые.
 	if previous != "" {
 		previous, err = storagepath.Normalize(previous)
-		if err != nil {return Accepted{},fmt.Errorf("unsafe previously accepted path: %w",err)}
+		if err != nil {
+			return Accepted{}, fmt.Errorf("unsafe previously accepted path: %w", err)
+		}
 	}
 	// An identical accepted version is idempotent if the visible file exists.
 	// RU: Повторная приёмка той же версии не изменяет файл и историю.

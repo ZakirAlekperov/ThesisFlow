@@ -70,13 +70,21 @@ func TestCheckDetectsAcceptedAndImmutableCorruption(t *testing.T) {
 	// RU: Проверяем перенос без переписывания существующих файлов.
 	legacyVersion := strings.ReplaceAll(version.RelativePath, "/", string(rune(92)))
 	legacyApproved := strings.ReplaceAll(accepted.RelativePath, "/", string(rune(92)))
-	if _, err := db.ExecContext(ctx,"UPDATE file_versions SET relative_path=? WHERE id=?",legacyVersion,version.ID);err!=nil {t.Fatal(err)}
-	if _, err := db.ExecContext(ctx,"UPDATE accepted_files SET relative_path=? WHERE student_id=? AND requirement_id=?",legacyApproved,student.ID,rule.ID);err!=nil {t.Fatal(err)}
-	if _, err := versions.Read(ctx,version.ID);err!=nil{t.Fatalf("legacy Windows upload path unreadable: %v",err)}
-	oldPathAudit,err:=Check(ctx,db,store)
-	if err!=nil||!oldPathAudit.Healthy(){t.Fatalf("legacy paths rejected: %+v %v",oldPathAudit,err)}
-	if _,err:=reviews.Accept(ctx,student.ID,rule.ID,version.ID);err!=nil{
-		t.Fatalf("idempotent approval of legacy path failed: %v",err)
+	if _, err := db.ExecContext(ctx, "UPDATE file_versions SET relative_path=? WHERE id=?", legacyVersion, version.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE accepted_files SET relative_path=? WHERE student_id=? AND requirement_id=?", legacyApproved, student.ID, rule.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := versions.Read(ctx, version.ID); err != nil {
+		t.Fatalf("legacy Windows upload path unreadable: %v", err)
+	}
+	oldPathAudit, err := Check(ctx, db, store)
+	if err != nil || !oldPathAudit.Healthy() {
+		t.Fatalf("legacy paths rejected: %+v %v", oldPathAudit, err)
+	}
+	if _, err := reviews.Accept(ctx, student.ID, rule.ID, version.ID); err != nil {
+		t.Fatalf("idempotent approval of legacy path failed: %v", err)
 	}
 	projection := filepath.Join(store, accepted.RelativePath)
 	if err := os.WriteFile(projection, []byte("TAMPERED"), 0600); err != nil {

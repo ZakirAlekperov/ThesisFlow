@@ -43,19 +43,27 @@ type Report struct {
 // RU: safeRegularPath запрещает обход каталогов и символические ссылки.
 func safeRegularPath(root, relative string) (string, error) {
 	normalized, err := storagepath.Normalize(relative)
-	if err != nil {return "",err}
+	if err != nil {
+		return "", err
+	}
 	current := root
 	for _, part := range strings.Split(normalized, "/") {
 		current = filepath.Join(current, part)
 		info, err := os.Lstat(current)
-		if err != nil {return "",err}
+		if err != nil {
+			return "", err
+		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			return "", errors.New("symbolic link not allowed")
 		}
 	}
 	info, err := os.Lstat(current)
-	if err != nil {return "",err}
-	if !info.Mode().IsRegular() {return "",errors.New("not a regular file")}
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", errors.New("not a regular file")
+	}
 	return current, nil
 }
 
