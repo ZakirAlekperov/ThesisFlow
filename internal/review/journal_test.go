@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
 )
 
 var simulatedCrash = errors.New("simulated process interruption")
@@ -256,5 +258,65 @@ func TestCannotAcceptSupersededVersion(t *testing.T) {
 	pending, err := svc.PendingCount(ctx)
 	if err != nil || pending != 0 {
 		t.Fatalf("old revision left a journal entry: %d %v", pending, err)
+	}
+}
+
+// TestNewerUploadDuringApprovalRestoresPriorProjection verifies that
+// SQLite's final latest-version check undoes a published-but-uncommitted
+// acceptance if another upload was recorded during file publication.
+// RU: Гонка загрузки и приёмки не нарушает готовность и прежний файл.
+func TestNewerUploadDuringApprovalRestoresPriorProjection(t *testing.T) {
+	ctx := context.Background()
+	svc, studentID, requirementID := testReview(t)
+	initial, err := svc.Versions.Save(ctx, studentID, requirementID, "v1.docx", []byte("previous approved"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := svc.Accept(ctx, studentID, requirementID, initial.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	upload, err := svc.Versions.Save(ctx, studentID, requirementID, "v2.docx", []byte("about to approve"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var newestID int64
+	svc.interruptApproval = func(stage string) error {
+		if stage != "after_publish" {
+			return nil
+		}
+		third, err := svc.Versions.Save(ctx, studentID, requirementID, "v3.docx", []byte("newer submission"))
+		if err != nil {
+			return err
+		}
+		newestID = third.ID
+		return nil
+	}
+	if _, err := svc.Accept(ctx, studentID, requirementID, upload.ID); !errors.Is(err, ErrStaleReview) {
+		t.Fatalf("racing approval should be a stale conflict: %v", err)
+	}
+	if newestID <= upload.ID {
+		t.Fatal("race upload was not committed")
+	}
+	var currentVersion int64
+	if err := svc.DB.QueryRowContext(ctx,
+		"SELECT version_id FROM accepted_files WHERE student_id=? AND requirement_id=?",
+		studentID, requirementID).Scan(&currentVersion); err != nil {
+		t.Fatal(err)
+	}
+	if currentVersion != initial.ID {
+		t.Errorf("racing approval changed accepted version to %d", currentVersion)
+	}
+	data, err := os.ReadFile(filepath.Join(svc.Versions.Root, filepath.FromSlash(approved.RelativePath)))
+	if err != nil || string(data) != "previous approved" {
+		t.Errorf("previous accepted bytes not restored: %q %v", data, err)
+	}
+	pending, err := svc.PendingCount(ctx)
+	if err != nil || pending != 0 {
+		t.Fatalf("racing approval left unresolved journal: %d %v", pending, err)
+	}
+	status, err := materials.NewRepository(svc.DB).Get(ctx, studentID, requirementID)
+	if err != nil || status.Status != materials.UnderReview {
+		t.Fatalf("new upload status should remain under review: %+v %v", status, err)
 	}
 }
