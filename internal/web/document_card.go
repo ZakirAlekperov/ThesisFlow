@@ -49,6 +49,11 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
     .batch-grid label { border: 1px solid var(--tf-border, #dbe3ef); border-radius: 9px; padding: 10px; }
     .batch-grid input[type="file"] { margin-top: 8px; }
     .history { margin: 12px 0 0; }
+    .review-form { display: grid; gap: 8px; margin-top: 10px; max-width: 720px; }
+    .review-form textarea { min-height: 80px; width: 100%; padding: 10px; font: inherit; border: 1px solid var(--tf-border); border-radius: 8px; background: var(--tf-panel); color: var(--tf-text); }
+    .feedback-list { list-style: none; padding: 0; margin: 10px 0 0; }
+    .feedback-list li { padding: 12px; margin-bottom: 8px; background: var(--tf-panel-alt); border: 1px solid var(--tf-border); border-radius: 9px; overflow-wrap: anywhere; }
+    .feedback-list p { margin: 6px 0 0; color: var(--tf-text) !important; white-space: pre-wrap; }
     .history ul { margin: 10px 0; padding-left: 20px; }
     a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid #367cc0; outline-offset: 3px; }
     @media (max-width: 650px) { .workspace { padding: 22px 14px; } .panel { padding: 16px; } }
@@ -134,25 +139,52 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
     </form>
     <h3>Версии документа ({{len .Versions}})</h3>
     {{if .Versions}}
+    {{$doc := .}}
     <ol class="versions">
       {{range .Versions}}
       <li>
         <a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/download">{{.OriginalName}}</a>
         <span class="muted"> · {{.UploadedAt}} · {{.Size}} байт · Версия #{{.ID}}</span>
+        {{if and (eq .ID $doc.LatestVersionID) (eq $doc.Status "На проверке")}}
         <div class="version-actions">
           <form method="post" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/accept/{{.ID}}">
             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
             <button type="submit">Принять</button>
           </form>
-          <form method="post" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/reject/{{.ID}}">
-            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button type="submit">На доработку</button>
-          </form>
         </div>
+        <details class="history">
+          <summary>Вернуть на доработку с причиной</summary>
+          <form class="review-form" method="post" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/reject/{{.ID}}">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <label>Причина возврата <textarea name="reason" maxlength="2000" required placeholder="Укажите, что необходимо исправить"></textarea></label>
+            <button type="submit">Отправить на доработку</button>
+          </form>
+        </details>
+        {{end}}
+        <details class="history">
+          <summary>Добавить замечание к версии #{{.ID}}</summary>
+          <form class="review-form" method="post" action="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/comment/{{.ID}}">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <label>Комментарий <textarea name="comment" maxlength="2000" required placeholder="Замечание к содержанию этой версии"></textarea></label>
+            <button type="submit">Сохранить замечание</button>
+          </form>
+        </details>
       </li>
       {{end}}
     </ol>
     {{else}}<p class="muted">Файлы пока не загружались.</p>{{end}}
+    {{if .Feedback}}
+    <h3>История рецензирования ({{len .Feedback}})</h3>
+    <ol class="feedback-list">
+      {{range .Feedback}}
+      <li>
+        <strong>{{.Kind}}</strong>
+        <span class="muted"> · Версия #{{.VersionID}} · {{.At}}</span>
+        <p>{{.Text}}</p>
+      </li>
+      {{end}}
+    </ol>
+    {{end}}
     {{if .History}}
     <details class="history">
       <summary>История статусов ({{len .History}})</summary>

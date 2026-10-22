@@ -30,11 +30,13 @@ type DocumentServices struct {
 }
 
 type documentItem struct {
-	Requirement requirements.Requirement
-	Status      string
-	Versions    []fileversions.Version
-	History     []documentHistoryItem
-	IsOverdue   bool
+	Requirement     requirements.Requirement
+	Status          string
+	Versions        []fileversions.Version
+	History         []documentHistoryItem
+	Feedback        []documentFeedbackItem
+	LatestVersionID int64
+	IsOverdue       bool
 }
 
 // documentHistoryItem is a read-only projection of a persisted material event.
@@ -42,6 +44,15 @@ type documentItem struct {
 type documentHistoryItem struct {
 	Status string
 	At     string
+}
+
+// documentFeedbackItem presents immutable notes without exposing SQL objects.
+// RU: Замечания отображаются в человекочитаемом виде с номером версии.
+type documentFeedbackItem struct {
+	VersionID int64
+	Kind      string
+	Text      string
+	At        string
 }
 
 type documentPage struct {
@@ -168,6 +179,8 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		data.Notice = "Документ отправлен на доработку."
 	case "uploaded":
 		data.Notice = "Документ загружен и ожидает проверки."
+	case "commented":
+		data.Notice = "Замечание к версии документа сохранено."
 	}
 	if docs.Thesis != nil {
 		record, err := docs.Thesis.Get(r.Context(), studentID)
@@ -193,6 +206,24 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		labels := map[materials.Status]string{materials.Missing: "Не сдан", materials.UnderReview: "На проверке", materials.NeedsRevision: "На доработке", materials.Accepted: "Принят"}
 		display := labels[status.Status]
 		item := documentItem{Requirement: requirement, Status: display, Versions: versions}
+		if len(versions) > 0 {
+			item.LatestVersionID = versions[len(versions)-1].ID
+		}
+		feedback, err := docs.Reviews.ListFeedback(r.Context(), studentID, requirement.ID)
+		if err != nil {
+			documentError(w, r, err)
+			return
+		}
+		for _, note := range feedback {
+			label := "Комментарий"
+			if note.Kind == review.FeedbackRevision {
+				label = "Причина возврата"
+			}
+			item.Feedback = append(item.Feedback, documentFeedbackItem{
+				VersionID: note.VersionID, Kind: label, Text: note.Text,
+				At: note.CreatedAt.Local().Format("02.01.2006 15:04"),
+			})
+		}
 		data.Total++
 		switch status.Status {
 		case materials.Accepted:
@@ -279,7 +310,11 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 		_, _ = w.Write(data)
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, int64(fileversions.MaxFileSize)+65536)
+	limit := int64(16384)
+	if action == "upload" {
+		limit = int64(fileversions.MaxFileSize) + 65536
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	if action == "upload" {
 		if err := r.ParseMultipartForm(int64(fileversions.MaxFileSize)); err != nil {
 			http.Error(w, "Ошибка формы или превышен размер.", http.StatusRequestEntityTooLarge)
@@ -322,19 +357,30 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 			return
 		}
 		_, err = docs.Versions.Save(r.Context(), studentID, requirementID, header.Filename, data)
-	case "accept", "reject":
+	case "accept", "reject", "comment":
 		versionID, parseErr := strconv.ParseInt(r.PathValue("version"), 10, 64)
 		if parseErr != nil || versionID <= 0 {
 			http.NotFound(w, r)
 			return
 		}
-		if action == "accept" {
+		switch action {
+		case "accept":
 			_, err = docs.Reviews.Accept(r.Context(), studentID, requirementID, versionID)
-		} else {
-			err = docs.Reviews.Reject(r.Context(), studentID, requirementID, versionID)
+		case "reject":
+			err = docs.Reviews.RejectWithReason(r.Context(), studentID, requirementID, versionID, r.PostForm.Get("reason"))
+		case "comment":
+			_, err = docs.Reviews.AddComment(r.Context(), studentID, requirementID, versionID, r.PostForm.Get("comment"))
 		}
 	}
 	if err != nil {
+		if errors.Is(err, review.ErrInvalidFeedback) {
+			http.Error(w, "Напишите замечание длиной от 1 до 2000 символов.", http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, review.ErrStaleReview) {
+			http.Error(w, "Эта версия уже обработана или заменена новой. Обновите страницу.", http.StatusConflict)
+			return
+		}
 		if errors.Is(err, fileversions.ErrTooLarge) {
 			http.Error(w, "Файл слишком большой.", http.StatusRequestEntityTooLarge)
 			return
@@ -354,6 +400,8 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 		notice = "?review=accepted"
 	case "reject":
 		notice = "?review=rejected"
+	case "comment":
+		notice = "?review=commented"
 	}
 	http.Redirect(w, r, page+notice, http.StatusSeeOther)
 }
