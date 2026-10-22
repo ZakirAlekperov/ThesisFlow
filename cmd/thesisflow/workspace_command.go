@@ -160,7 +160,7 @@ func runWorkspaceCommand(ctx context.Context, args []string, out io.Writer, open
 		_, err = fmt.Fprintln(out, "Рабочее пространство прошло проверку целостности.")
 		return err
 	case "run":
-		return startWithPreflight(ctx, out, localPort, filepath.Join(root, "thesisflow.sqlite"), openBrowser, true)
+		return startWithPreflight(ctx, out, localPort, filepath.Join(root, "thesisflow.sqlite"), openBrowser, true, nil)
 	default:
 		return fmt.Errorf("usage: thesisflow workspace inspect <directory> | workspace run <directory>")
 	}
