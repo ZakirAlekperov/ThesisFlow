@@ -21,7 +21,7 @@ func inventoryUnknown(ctx context.Context, db *sql.DB, root string) (int, error)
 		return 0, err
 	}
 	known := make(map[string]struct{})
-	for _, table := range []string{"file_versions", "accepted_files"} {
+	for _, table := range []string{"file_versions", "accepted_files", "template_versions"} {
 		present, err := tableExists(ctx, db, table)
 		if err != nil {
 			return 0, err
