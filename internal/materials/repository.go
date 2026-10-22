@@ -241,7 +241,6 @@ func (r *Repository) History(ctx context.Context, studentID, requirementID int64
 	return result, nil
 }
 
-
 // GroupStatuses reads all material statuses for one academic group with a
 // single indexed query. Missing pairs are omitted and interpreted as Missing
 // by the caller; no query runs for every student/requirement combination.

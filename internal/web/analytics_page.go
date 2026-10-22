@@ -1,68 +1,68 @@
 package web
 
 import (
- "bytes"
- "context"
- "errors"
- "fmt"
- "html/template"
- "net/http"
- "net/url"
- "strconv"
- "strings"
- "time"
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"html/template"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
 
- "github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
- "github.com/ZakirAlekperov/ThesisFlow/internal/groups"
- "github.com/ZakirAlekperov/ThesisFlow/internal/reportexport"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/reportexport"
 )
 
 // AnalyticsProvider supplies one coherent report and factual event timeline.
 // RU: AnalyticsProvider отдаёт единые данные для HTML, CSV и XLSX.
 type AnalyticsProvider interface {
- Build(context.Context,analytics.Filter,time.Time)(analytics.Report,error)
- Activity(context.Context,time.Time,time.Time,int64)([]analytics.Week,error)
+	Build(context.Context, analytics.Filter, time.Time) (analytics.Report, error)
+	Activity(context.Context, time.Time, time.Time, int64) ([]analytics.Week, error)
 }
 type analyticsStudent struct {
- analytics.Student
- Percent int
- HasRequirements bool
+	analytics.Student
+	Percent         int
+	HasRequirements bool
 }
 type analyticsGroup struct {
- analytics.Group
- Percent int
- HasRequirements bool
+	analytics.Group
+	Percent         int
+	HasRequirements bool
 }
 type analyticsDocument struct {
- analytics.Document
- StatusLabel string
+	analytics.Document
+	StatusLabel string
 }
 type analyticsWeek struct {
- analytics.Week
- UploadedWidth int
- AcceptedWidth int
- ReturnedWidth int
+	analytics.Week
+	UploadedWidth int
+	AcceptedWidth int
+	ReturnedWidth int
 }
 type analyticsPage struct {
- Report analytics.Report
- Students []analyticsStudent
- Groups []analyticsGroup
- Documents []analyticsDocument
- Weeks []analyticsWeek
- AllGroups []groups.Group
- Query template.URL
- From string
- To string
- DateMessage string
- TotalPercent int
- HasRequirements bool
- Print bool
+	Report          analytics.Report
+	Students        []analyticsStudent
+	Groups          []analyticsGroup
+	Documents       []analyticsDocument
+	Weeks           []analyticsWeek
+	AllGroups       []groups.Group
+	Query           template.URL
+	From            string
+	To              string
+	DateMessage     string
+	TotalPercent    int
+	HasRequirements bool
+	Print           bool
 }
 
 // analyticsTemplate uses only offline server templates and concept C colors.
 // Accessible tables remain usable without charts or JavaScript.
 // RU: Таблица — доступная альтернатива графикам событий.
-var analyticsTemplate=template.Must(template.New("analytics").Parse(`<!doctype html><html lang="ru"><head>
+var analyticsTemplate = template.Must(template.New("analytics").Parse(`<!doctype html><html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Аналитика ВКР — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
@@ -143,114 +143,198 @@ thead th{background:var(--tf-table-head)}.report-actions{display:flex;flex-wrap:
 {{else}}<tr><td colspan="5">За выбранный период событий нет.</td></tr>{{end}}</tbody></table></div>
 </section></body></html>`))
 
-func reportFilters(r *http.Request)(analytics.Filter,time.Time,time.Time,error){
- q:=r.URL.Query()
- f:=analytics.Filter{Search:strings.TrimSpace(q.Get("q")),Status:q.Get("status"),Sort:q.Get("sort"),OverdueOnly:q.Get("overdue")=="1"}
- if value:=q.Get("overdue");value!=""&&value!="1"{return f,time.Time{},time.Time{},analytics.ErrInvalidFilter}
- if raw:=q.Get("group");raw!=""{
-  id,err:=strconv.ParseInt(raw,10,64)
-  if err!=nil {return f,time.Time{},time.Time{},analytics.ErrInvalidFilter}
-  f.GroupID=id
- }
- if raw:=r.PathValue("id");raw!=""{
-  id,err:=strconv.ParseInt(raw,10,64)
-  if err!=nil||id<=0 {return f,time.Time{},time.Time{},analytics.ErrInvalidFilter}
-  f.GroupID=id
- }
- if err:=analytics.CheckFilter(f);err!=nil{return f,time.Time{},time.Time{},err}
- now:=time.Now()
- start:=now.AddDate(0,0,-30)
- end:=now
- if raw:=q.Get("from");raw!=""{
-  parsed,err:=time.ParseInLocation("2006-01-02",raw,now.Location())
-  if err!=nil||parsed.Format("2006-01-02")!=raw{return f,start,end,analytics.ErrInvalidFilter}
-  start=parsed
- }
- if raw:=q.Get("to");raw!=""{
-  parsed,err:=time.ParseInLocation("2006-01-02",raw,now.Location())
-  if err!=nil||parsed.Format("2006-01-02")!=raw{return f,start,end,analytics.ErrInvalidFilter}
-  end=parsed
- }
- if end.Before(start)||end.Sub(start)>366*24*time.Hour{return f,start,end,analytics.ErrInvalidFilter}
- return f,start,end,nil
+func reportFilters(r *http.Request) (analytics.Filter, time.Time, time.Time, error) {
+	q := r.URL.Query()
+	f := analytics.Filter{Search: strings.TrimSpace(q.Get("q")), Status: q.Get("status"), Sort: q.Get("sort"), OverdueOnly: q.Get("overdue") == "1"}
+	if value := q.Get("overdue"); value != "" && value != "1" {
+		return f, time.Time{}, time.Time{}, analytics.ErrInvalidFilter
+	}
+	if raw := q.Get("group"); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			return f, time.Time{}, time.Time{}, analytics.ErrInvalidFilter
+		}
+		f.GroupID = id
+	}
+	if raw := r.PathValue("id"); raw != "" {
+		id, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || id <= 0 {
+			return f, time.Time{}, time.Time{}, analytics.ErrInvalidFilter
+		}
+		f.GroupID = id
+	}
+	if err := analytics.CheckFilter(f); err != nil {
+		return f, time.Time{}, time.Time{}, err
+	}
+	now := time.Now()
+	start := now.AddDate(0, 0, -30)
+	end := now
+	if raw := q.Get("from"); raw != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", raw, now.Location())
+		if err != nil || parsed.Format("2006-01-02") != raw {
+			return f, start, end, analytics.ErrInvalidFilter
+		}
+		start = parsed
+	}
+	if raw := q.Get("to"); raw != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", raw, now.Location())
+		if err != nil || parsed.Format("2006-01-02") != raw {
+			return f, start, end, analytics.ErrInvalidFilter
+		}
+		end = parsed
+	}
+	if end.Before(start) || end.Sub(start) > 366*24*time.Hour {
+		return f, start, end, analytics.ErrInvalidFilter
+	}
+	return f, start, end, nil
 }
 
-func reportQuery(f analytics.Filter,start,end time.Time)template.URL{
- // Parameters are built from validated values, not user-provided raw URL.
- q:=url.Values{}
- if f.GroupID>0{q.Set("group",fmt.Sprint(f.GroupID))}
- if f.Search!=""{q.Set("q",f.Search)}
- if f.Status!=""{q.Set("status",f.Status)}
- if f.Sort!=""{q.Set("sort",f.Sort)}
- if f.OverdueOnly{q.Set("overdue","1")}
- q.Set("from",start.Format("2006-01-02"));q.Set("to",end.Format("2006-01-02"))
- return template.URL(q.Encode())
+func reportQuery(f analytics.Filter, start, end time.Time) template.URL {
+	// Parameters are built from validated values, not user-provided raw URL.
+	q := url.Values{}
+	if f.GroupID > 0 {
+		q.Set("group", fmt.Sprint(f.GroupID))
+	}
+	if f.Search != "" {
+		q.Set("q", f.Search)
+	}
+	if f.Status != "" {
+		q.Set("status", f.Status)
+	}
+	if f.Sort != "" {
+		q.Set("sort", f.Sort)
+	}
+	if f.OverdueOnly {
+		q.Set("overdue", "1")
+	}
+	q.Set("from", start.Format("2006-01-02"))
+	q.Set("to", end.Format("2006-01-02"))
+	return template.URL(q.Encode())
 }
-func reportFailure(w http.ResponseWriter,err error){
- switch {
- case errors.Is(err,analytics.ErrInvalidFilter):http.Error(w,"Неверные параметры отчёта.",http.StatusBadRequest)
- case errors.Is(err,analytics.ErrUnknownGroup):http.Error(w,"Группа не найдена.",http.StatusNotFound)
- default:http.Error(w,"Не удалось сформировать отчёт.",http.StatusInternalServerError)
- }
+func reportFailure(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, analytics.ErrInvalidFilter):
+		http.Error(w, "Неверные параметры отчёта.", http.StatusBadRequest)
+	case errors.Is(err, analytics.ErrUnknownGroup):
+		http.Error(w, "Группа не найдена.", http.StatusNotFound)
+	default:
+		http.Error(w, "Не удалось сформировать отчёт.", http.StatusInternalServerError)
+	}
 }
 
 // renderAnalytics uses a single filtered snapshot for the page and its
 // exported links; group-only URLs override the query-string group.
 // RU: Страница и экспорт используют одинаковый фильтр и реальные данные.
-func renderAnalytics(w http.ResponseWriter,r *http.Request,store GroupStore,provider AnalyticsProvider,print bool){
- f,start,end,err:=reportFilters(r)
- if err!=nil{reportFailure(w,err);return}
- now:=time.Now()
- data,err:=provider.Build(r.Context(),f,now)
- if err!=nil{reportFailure(w,err);return}
- history,err:=provider.Activity(r.Context(),start,end,f.GroupID)
- if err!=nil{reportFailure(w,err);return}
- allGroups,err:=store.List(r.Context())
- if err!=nil{reportFailure(w,err);return}
- page:=analyticsPage{Report:data,AllGroups:allGroups,Query:reportQuery(f,start,end),From:start.Format("2006-01-02"),To:end.Format("2006-01-02"),Print:print}
- page.TotalPercent,page.HasRequirements=data.Totals.Percent()
- for _,g:=range data.Groups {p,ok:=g.Metrics.Percent();page.Groups=append(page.Groups,analyticsGroup{Group:g,Percent:p,HasRequirements:ok})}
- for _,s:=range data.Students {p,ok:=s.Metrics.Percent();page.Students=append(page.Students,analyticsStudent{Student:s,Percent:p,HasRequirements:ok})}
- for _,d:=range data.Documents {page.Documents=append(page.Documents,analyticsDocument{Document:d,StatusLabel:materialLabelString(d.Status)})}
- maxValue:=0
- for _,week:=range history {for _,v:=range []int{week.Uploaded,week.Accepted,week.Returned}{if v>maxValue{maxValue=v}}}
- for _,week:=range history {
-  row:=analyticsWeek{Week:week}
-  if maxValue>0 {row.UploadedWidth=week.Uploaded*100/maxValue;row.AcceptedWidth=week.Accepted*100/maxValue;row.ReturnedWidth=week.Returned*100/maxValue}
-  page.Weeks=append(page.Weeks,row)
- }
- var out bytes.Buffer
- if err:=analyticsTemplate.Execute(&out,page);err!=nil{reportFailure(w,err);return}
- w.Header().Set("Content-Type","text/html; charset=utf-8")
- if print {w.Header().Set("Content-Security-Policy","default-src 'none'; style-src 'unsafe-inline'")}
- _,_=w.Write(out.Bytes())
+func renderAnalytics(w http.ResponseWriter, r *http.Request, store GroupStore, provider AnalyticsProvider, print bool) {
+	f, start, end, err := reportFilters(r)
+	if err != nil {
+		reportFailure(w, err)
+		return
+	}
+	now := time.Now()
+	data, err := provider.Build(r.Context(), f, now)
+	if err != nil {
+		reportFailure(w, err)
+		return
+	}
+	history, err := provider.Activity(r.Context(), start, end, f.GroupID)
+	if err != nil {
+		reportFailure(w, err)
+		return
+	}
+	allGroups, err := store.List(r.Context())
+	if err != nil {
+		reportFailure(w, err)
+		return
+	}
+	page := analyticsPage{Report: data, AllGroups: allGroups, Query: reportQuery(f, start, end), From: start.Format("2006-01-02"), To: end.Format("2006-01-02"), Print: print}
+	page.TotalPercent, page.HasRequirements = data.Totals.Percent()
+	for _, g := range data.Groups {
+		p, ok := g.Metrics.Percent()
+		page.Groups = append(page.Groups, analyticsGroup{Group: g, Percent: p, HasRequirements: ok})
+	}
+	for _, s := range data.Students {
+		p, ok := s.Metrics.Percent()
+		page.Students = append(page.Students, analyticsStudent{Student: s, Percent: p, HasRequirements: ok})
+	}
+	for _, d := range data.Documents {
+		page.Documents = append(page.Documents, analyticsDocument{Document: d, StatusLabel: materialLabelString(d.Status)})
+	}
+	maxValue := 0
+	for _, week := range history {
+		for _, v := range []int{week.Uploaded, week.Accepted, week.Returned} {
+			if v > maxValue {
+				maxValue = v
+			}
+		}
+	}
+	for _, week := range history {
+		row := analyticsWeek{Week: week}
+		if maxValue > 0 {
+			row.UploadedWidth = week.Uploaded * 100 / maxValue
+			row.AcceptedWidth = week.Accepted * 100 / maxValue
+			row.ReturnedWidth = week.Returned * 100 / maxValue
+		}
+		page.Weeks = append(page.Weeks, row)
+	}
+	var out bytes.Buffer
+	if err := analyticsTemplate.Execute(&out, page); err != nil {
+		reportFailure(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if print {
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+	}
+	_, _ = w.Write(out.Bytes())
 }
-func materialLabelString(value string)string{switch value{
-case "accepted":return "Принят";case "under_review":return "На проверке";case "needs_revision":return "На доработке";default:return "Не сдан"
-}}
+func materialLabelString(value string) string {
+	switch value {
+	case "accepted":
+		return "Принят"
+	case "under_review":
+		return "На проверке"
+	case "needs_revision":
+		return "На доработке"
+	default:
+		return "Не сдан"
+	}
+}
 
 // downloadAnalytics returns genuine report data, not renamed CSV. A bounded
 // in-memory buffer prevents partially written corrupt workbooks on error.
 // RU: XLSX создаётся как OOXML/ZIP с тремя листами, CSV как UTF-8 с BOM.
-func downloadAnalytics(w http.ResponseWriter,r *http.Request,provider AnalyticsProvider,format string){
- f,_,_,err:=reportFilters(r)
- if err!=nil{reportFailure(w,err);return}
- data,err:=provider.Build(r.Context(),f,time.Now())
- if err!=nil{reportFailure(w,err);return}
- if len(data.Documents)>100000{http.Error(w,"Для экспорта сузьте выборку.",http.StatusRequestEntityTooLarge);return}
- var out bytes.Buffer
- filename:="thesisflow-report.csv"
- mimeType:="text/csv; charset=utf-8"
- if format=="xlsx"{
-  filename="thesisflow-report.xlsx"
-  mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  err=reportexport.WriteXLSX(&out,reportexport.Sheets(data))
- }else{
-  err=reportexport.WriteCSV(&out,data)
- }
- if err!=nil{http.Error(w,"Ошибка формирования файла.",http.StatusInternalServerError);return}
- w.Header().Set("Content-Type",mimeType)
- w.Header().Set("Content-Disposition",fmt.Sprintf("attachment; filename=%q",filename))
- w.Header().Set("Content-Length",strconv.Itoa(out.Len()))
- _,_=w.Write(out.Bytes())
+func downloadAnalytics(w http.ResponseWriter, r *http.Request, provider AnalyticsProvider, format string) {
+	f, _, _, err := reportFilters(r)
+	if err != nil {
+		reportFailure(w, err)
+		return
+	}
+	data, err := provider.Build(r.Context(), f, time.Now())
+	if err != nil {
+		reportFailure(w, err)
+		return
+	}
+	if len(data.Documents) > 100000 {
+		http.Error(w, "Для экспорта сузьте выборку.", http.StatusRequestEntityTooLarge)
+		return
+	}
+	var out bytes.Buffer
+	filename := "thesisflow-report.csv"
+	mimeType := "text/csv; charset=utf-8"
+	if format == "xlsx" {
+		filename = "thesisflow-report.xlsx"
+		mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+		err = reportexport.WriteXLSX(&out, reportexport.Sheets(data))
+	} else {
+		err = reportexport.WriteCSV(&out, data)
+	}
+	if err != nil {
+		http.Error(w, "Ошибка формирования файла.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	w.Header().Set("Content-Length", strconv.Itoa(out.Len()))
+	_, _ = w.Write(out.Bytes())
 }

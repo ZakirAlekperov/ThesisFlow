@@ -150,7 +150,7 @@ type Dependencies struct {
 	Restore      BackupRestorer
 	Matrix       MatrixProvider
 	ReviewQueue  ReviewQueueReader
-	Analytics     AnalyticsProvider
+	Analytics    AnalyticsProvider
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -178,20 +178,20 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 
 	mux := http.NewServeMux()
 	if deps.Analytics != nil {
-		mux.HandleFunc("GET /reports",func(w http.ResponseWriter,r *http.Request){
-			renderAnalytics(w,r,store,deps.Analytics,false)
+		mux.HandleFunc("GET /reports", func(w http.ResponseWriter, r *http.Request) {
+			renderAnalytics(w, r, store, deps.Analytics, false)
 		})
-		mux.HandleFunc("GET /reports/groups/{id}",func(w http.ResponseWriter,r *http.Request){
-			renderAnalytics(w,r,store,deps.Analytics,false)
+		mux.HandleFunc("GET /reports/groups/{id}", func(w http.ResponseWriter, r *http.Request) {
+			renderAnalytics(w, r, store, deps.Analytics, false)
 		})
-		mux.HandleFunc("GET /reports/print",func(w http.ResponseWriter,r *http.Request){
-			renderAnalytics(w,r,store,deps.Analytics,true)
+		mux.HandleFunc("GET /reports/print", func(w http.ResponseWriter, r *http.Request) {
+			renderAnalytics(w, r, store, deps.Analytics, true)
 		})
-		mux.HandleFunc("GET /reports/export.csv",func(w http.ResponseWriter,r *http.Request){
-			downloadAnalytics(w,r,deps.Analytics,"csv")
+		mux.HandleFunc("GET /reports/export.csv", func(w http.ResponseWriter, r *http.Request) {
+			downloadAnalytics(w, r, deps.Analytics, "csv")
 		})
-		mux.HandleFunc("GET /reports/export.xlsx",func(w http.ResponseWriter,r *http.Request){
-			downloadAnalytics(w,r,deps.Analytics,"xlsx")
+		mux.HandleFunc("GET /reports/export.xlsx", func(w http.ResponseWriter, r *http.Request) {
+			downloadAnalytics(w, r, deps.Analytics, "xlsx")
 		})
 	}
 	if deps.ReviewQueue != nil {

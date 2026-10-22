@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/browser"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/groups"
-	"github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/management"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
