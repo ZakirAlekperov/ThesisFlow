@@ -43,8 +43,13 @@ func TestMatrixStatusFilters(t *testing.T) {
 		&fakeGroupLister{items: []groups.Group{{ID: 17, Name: "ИСП-401"}}},
 		&fakeStudentLister{}, Dependencies{Matrix: fakeMatrixProvider{result: data}},
 	)
-	if err != nil { t.Fatal(err) }
-	cases := []struct{ filter, included, excluded string; count string }{
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		filter, included, excluded string
+		count                      string
+	}{
 		{"under_review", "Иванов Иван", "Петров Пётр", "1 из 3"},
 		{"needs_revision", "Петров Пётр", "Иванов Иван", "1 из 3"},
 		{"overdue", "Иванов Иван", "Петров Пётр", "1 из 3"},
@@ -55,7 +60,9 @@ func TestMatrixStatusFilters(t *testing.T) {
 		t.Run(fmt.Sprintf("filter-%s", tt.filter), func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/groups/17/matrix?status="+tt.filter, nil))
-			if rec.Code != http.StatusOK { t.Fatalf("GET = %d: %s", rec.Code, rec.Body.String()) }
+			if rec.Code != http.StatusOK {
+				t.Fatalf("GET = %d: %s", rec.Code, rec.Body.String())
+			}
 			body := rec.Body.String()
 			if !strings.Contains(body, tt.included) || !strings.Contains(body, tt.count) {
 				t.Errorf("filter %s missing included student/count in %q", tt.filter, body)
