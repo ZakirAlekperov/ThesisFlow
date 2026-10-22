@@ -186,6 +186,18 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	mux.HandleFunc("POST /groups/{id}/students", func(w http.ResponseWriter, r *http.Request) {
 		createStudentFromForm(w, r, store, studentStore, token, deps.Requirements)
 	})
+	if sheetImporter, ok := deps.Workbook.(SheetWorkbookImporter); ok {
+		previews := newPreviewStore()
+		mux.HandleFunc("POST /groups/{id}/import/preview", func(w http.ResponseWriter, r *http.Request) {
+			previewUpload(w, r, store, previews, token)
+		})
+		mux.HandleFunc("POST /groups/{id}/import/preview/sheet", func(w http.ResponseWriter, r *http.Request) {
+			previewSelectSheet(w, r, store, previews, token)
+		})
+		mux.HandleFunc("POST /groups/{id}/import/commit", func(w http.ResponseWriter, r *http.Request) {
+			previewCommit(w, r, store, previews, sheetImporter, token)
+		})
+	}
 	if deps.Workbook != nil {
 		mux.HandleFunc("POST /groups/{id}/import", func(w http.ResponseWriter, r *http.Request) {
 			importStudentsFromWorkbook(w, r, store, deps.Workbook, token)

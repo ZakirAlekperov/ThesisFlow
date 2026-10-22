@@ -124,7 +124,8 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
         <input id="xlsx-id-column" type="text" name="id_header" value="Учебный ID" required>
         <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
         <p class="import-hint">Заголовки должны совпадать с первой строкой первого листа Excel. Если обнаружена ошибка, ни один студент из файла не будет добавлен. Максимальный размер — 10 МиБ.</p>
-        <button type="submit">Импортировать студентов</button>
+        <button type="submit" formaction="/groups/{{.Group.ID}}/import/preview">Предпросмотр Excel перед импортом</button>
+        <button type="submit">Импортировать сразу (без предпросмотра)</button>
       </form>
     </section>
     <section class="panel" aria-labelledby="requirements-heading">
