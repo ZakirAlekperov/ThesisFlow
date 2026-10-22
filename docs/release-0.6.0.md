@@ -232,7 +232,8 @@ no unsupported future schema is opened.
   проверяет восстановленное пространство под межпроцессной блокировкой
   и лишь после этого показывает интерфейс. Если выбор испорчен или
   каталог недоступен, запуск **завершается ошибкой**, а не создаёт
-  новую пустую базу.
+  новую пустую базу. Для аварийного возврата к основному каталогу без
+  запуска браузера используется `thesisflow workspace reset`.
 - Новые резервные копии из браузера по-прежнему восстанавливаются
   в единый `<default>/restores`, независимо от того, какое рабочее
   пространство сейчас открыто.
@@ -271,4 +272,5 @@ next-launch choice atomically, and rechecks on application startup under
 an OS lock. No active SQLite connection is replaced; switching requires
 normal application restart, and users can select the original workspace
 again. Corrupt selection state fails explicitly instead of creating an
-empty database.
+empty database. The CLI `thesisflow workspace reset` returns the next
+launch to the default workspace without deleting the restored files.
