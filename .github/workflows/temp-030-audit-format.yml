@@ -1,0 +1,27 @@
+name: Temporary code audit formatter
+on:
+  push:
+    branches: [feature/0.3.0-audit-docs]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/0.3.0-audit-docs
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Format
+        run: |
+          gofmt -w internal/fileversions/read_integrity_test.go internal/fileversions/store.go cmd/thesisflow/version.go cmd/thesisflow/version_test.go
+          git config user.name "ThesisFlow CI"
+          git config user.email "thesisflow-ci@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add internal/fileversions/ cmd/thesisflow/
+            git commit -m "style: format code audit security changes"
+            git push origin HEAD:feature/0.3.0-audit-docs
+          fi
