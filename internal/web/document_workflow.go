@@ -5,11 +5,11 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"time"
 	"io"
 	"mime"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
@@ -45,28 +45,27 @@ type documentHistoryItem struct {
 }
 
 type documentPage struct {
-	FullName     string
-	GroupName    string
+	FullName      string
+	GroupName     string
 	EducationalID string
-	GroupID      int64
-	StudentID    int64
-	CSRFToken    string
-	Documents    []documentItem
-	ThesisTopic  string
-	CanEditTopic bool
-	OrderRef     string
-	Total        int
-	Accepted     int
-	UnderReview  int
+	GroupID       int64
+	StudentID     int64
+	CSRFToken     string
+	Documents     []documentItem
+	ThesisTopic   string
+	CanEditTopic  bool
+	OrderRef      string
+	Total         int
+	Accepted      int
+	UnderReview   int
 	NeedsRevision int
-	Missing      int
-	Overdue      int
-	Progress     int
+	Missing       int
+	Overdue       int
+	Progress      int
 }
 
 // The separate template keeps the card layout readable and testable.
 // RU: Разметка карточки вынесена в отдельный Go-шаблон.
-
 
 // documentScope verifies route IDs against the group, student, and requirement.
 // RU: documentScope сверяет группу, студента и применимость документа.
