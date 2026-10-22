@@ -23,7 +23,7 @@ func Normalize(raw string) (string, error) {
 		return "", ErrUnsafe
 	}
 	clean := strings.ReplaceAll(raw, "\\", "/")
-	if clean == "." || !path.IsLocal(clean) || path.Clean(clean) != clean {
+	if clean == "." || path.IsAbs(clean) || path.Clean(clean) != clean {
 		return "", ErrUnsafe
 	}
 	for _, part := range strings.Split(clean, "/") {
