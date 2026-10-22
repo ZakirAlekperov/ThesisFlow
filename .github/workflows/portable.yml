@@ -65,7 +65,7 @@ jobs:
             mkdir -p debroot/DEBIAN debroot/usr/local/bin
             cp dist/thesisflow debroot/usr/local/bin/thesisflow
             chmod 755 debroot/usr/local/bin/thesisflow
-            printf 'Package: thesisflow\nVersion: 0.6.0~dev\nSection: education\nPriority: optional\nArchitecture: amd64\nMaintainer: ThesisFlow developers <maintainers@localhost>\nDescription: Local graduation thesis document management app\n' > debroot/DEBIAN/control
+            printf 'Package: thesisflow\nVersion: 0.7.0~dev\nSection: education\nPriority: optional\nArchitecture: amd64\nMaintainer: ThesisFlow developers <maintainers@localhost>\nDescription: Local graduation thesis document management app\n' > debroot/DEBIAN/control
             chmod 755 debroot/DEBIAN
             dpkg-deb --build debroot "$package.deb"
             echo "archive=$package.tar.gz" >> "$GITHUB_OUTPUT"

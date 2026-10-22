@@ -145,16 +145,17 @@ func (r *Repository) Build(ctx context.Context, f Filter, now time.Time) (Report
 	}
 	result := Report{Filter: f, GeneratedAt: now, Groups: make([]Group, 0), Students: make([]Student, 0), Documents: make([]Document, 0)}
 	const query = `SELECT g.id,g.name,s.id,COALESCE(s.full_name,''),COALESCE(s.educational_id,''),
- req.id,COALESCE(req.title,''),COALESCE(req.due_date,''),COALESCE(m.status,'missing'),
+ req.id,COALESCE(req.title,''),CASE WHEN o.kind='none' THEN '' WHEN o.kind='date' THEN o.due_date ELSE COALESCE(req.due_date,'') END,COALESCE(m.status,'missing'),
  CASE WHEN af.version_id IS NULL THEN 0 ELSE 1 END
  FROM student_groups g
  LEFT JOIN students s ON s.group_id=g.id AND s.archived_at IS NULL
  LEFT JOIN requirements req ON req.group_id=g.id
   AND s.id IS NOT NULL AND (req.student_id IS NULL OR req.student_id=s.id)
+ LEFT JOIN due_overrides o ON o.student_id=s.id AND o.requirement_id=req.id
  LEFT JOIN material_status m ON m.student_id=s.id AND m.requirement_id=req.id
  LEFT JOIN accepted_files af ON af.student_id=s.id AND af.requirement_id=req.id
  WHERE g.archived_at IS NULL AND (?=0 OR g.id=?)
- ORDER BY g.name,g.id,s.full_name,s.id,req.title_key,req.id`
+ ORDER BY g.name,g.id,s.full_name,s.id,req.sort_order,req.title_key,req.id`
 	rows, err := r.DB.QueryContext(ctx, query, f.GroupID, f.GroupID)
 	if err != nil {
 		return Report{}, fmt.Errorf("query analytics: %w", err)

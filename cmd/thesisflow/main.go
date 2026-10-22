@@ -22,15 +22,18 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/importxlsx"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/management"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/profiles"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/readiness"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/requirements"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/review"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/reviewqueue"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/schedule"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/statusmatrix"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/userassets"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
@@ -208,6 +211,9 @@ func startWithPreflight(ctx context.Context, output io.Writer, port, databasePat
 		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		ReviewQueue:  reviewqueue.New(db),
 		Analytics:    analytics.New(db),
+		Profiles:     profiles.New(db),
+		Schedule:     schedule.New(db),
+		Assets:       userassets.New(db, versions.Root),
 		Requirements: requirements.NewRepository(db),
 		Report:       readiness.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		Documents: &web.DocumentServices{
