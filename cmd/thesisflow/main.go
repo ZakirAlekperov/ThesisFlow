@@ -32,6 +32,8 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
 )
 
 // localPort asks the OS to choose a free local port.
@@ -104,6 +106,31 @@ func run(ctx context.Context, output io.Writer, port string, handler http.Handle
 // RU: start открывает постоянную базу до запуска HTTP-интерфейса.
 // При завершении работы соединение с базой закрывается.
 func start(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error) error {
+	return startWithPreflight(ctx, output, port, databasePath, openBrowser, false)
+}
+
+// startWithPreflight holds a cross-process workspace lock for the full
+// server lifetime. Explicitly selected restored workspaces are verified
+// BEFORE any migrations or HTTP route is initialized.
+// RU: Восстановленное хранилище проверяется до любых изменений SQLite.
+func startWithPreflight(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error, verifyExisting bool) error {
+	if verifyExisting {
+		if _, err := validatedWorkspaceDB(filepath.Dir(databasePath)); err != nil {
+			return err
+		}
+	}
+	lock, err := workspacelock.Acquire(filepath.Dir(databasePath))
+	if err != nil {
+		return fmt.Errorf("cannot open workspace while another instance is running: %w", err)
+	}
+	defer lock.Close()
+	// Revalidate under the exclusive lock, eliminating any application-level
+	// race with another ThesisFlow process during the initial preflight.
+	if verifyExisting {
+		if err := preflightWorkspace(ctx, filepath.Dir(databasePath)); err != nil {
+			return err
+		}
+	}
 	db, err := sqlite.Open(ctx, databasePath)
 	if err != nil {
 		return fmt.Errorf("initialize local database: %w", err)
@@ -153,6 +180,18 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	// RU: Восстанавливаем незавершённую приёмку до открытия браузера.
 	if _, err := reviewService.RecoverPending(ctx); err != nil {
 		return fmt.Errorf("workspace approval recovery needs attention: %w", err)
+	}
+	// Verify the complete restored workspace after journal replay and
+	// before exposing any HTTP route to a user.
+	// RU: Сверяем версии и принятые копии после восстановления операций.
+	if verifyExisting {
+		report, err := workspace.Check(ctx, db, versions.Root)
+		if err != nil {
+			return fmt.Errorf("validate restored workspace: %w", err)
+		}
+		if !report.Healthy() {
+			return fmt.Errorf("restored workspace has %d integrity problems", len(report.Issues))
+		}
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
@@ -217,7 +256,9 @@ func main() {
 		configDir, err := os.UserConfigDir()
 		if err == nil {
 			root := filepath.Join(configDir, "ThesisFlow")
-			if len(os.Args) == 2 && os.Args[1] == "doctor" {
+			if os.Args[1] == "workspace" {
+				err = runWorkspaceCommand(ctx, os.Args[1:], os.Stdout, browser.Open)
+			} else if len(os.Args) == 2 && os.Args[1] == "doctor" {
 				err = runDoctorCommand(ctx, root, os.Stdout)
 			} else {
 				err = runBackupCommand(ctx, root, os.Args[1:], os.Stdout)

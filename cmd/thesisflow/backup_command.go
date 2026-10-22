@@ -9,6 +9,7 @@ import (
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/backup"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
 )
 
 // runBackupCommand exports or restores a complete local workspace. The caller
@@ -32,6 +33,14 @@ func runBackupCommand(ctx context.Context, workspace string, args []string, outp
 		if _, err := os.Stat(databasePath); err != nil {
 			return fmt.Errorf("database is absent: %w", err)
 		}
+		// CLI exports must not race a running ThesisFlow server. The
+		// in-browser export already uses its own running process lock.
+		// RU: Нельзя делать внешнюю копию параллельно активной записи.
+		lock, err := workspacelock.Acquire(workspace)
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
 		db, err := sqlite.Open(ctx, databasePath)
 		if err != nil {
 			return fmt.Errorf("open workspace database: %w", err)
