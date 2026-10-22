@@ -74,9 +74,11 @@ func canonicalPath(root, relative string) (string, error) {
 		return "", err
 	}
 	rootInfo, err := os.Lstat(root)
-	if err != nil {return "",err}
+	if err != nil {
+		return "", err
+	}
 	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
-		return "",errors.New("unsafe storage root")
+		return "", errors.New("unsafe storage root")
 	}
 	current := root
 	for _, part := range strings.Split(normalized, "/") {
