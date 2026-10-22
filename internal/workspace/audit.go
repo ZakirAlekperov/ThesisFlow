@@ -42,6 +42,8 @@ type Report struct {
 	AcceptedChecked int
 	AcceptedIntact  int
 	ExtraFiles      int
+	TemplatesChecked int
+	TemplatesIntact  int
 	Issues          []Issue
 }
 
@@ -203,7 +205,10 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 		return report, nil
 	}
 	if !versionsPresent {
-		if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+		if err := inspectTemplateVersions(ctx, db, storageRoot, &report); err != nil {
+		return Report{}, fmt.Errorf("verify document template files: %w", err)
+	}
+	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
 			return Report{}, err
 		}
 		return report, nil
@@ -220,7 +225,10 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 			"immutable file version failed integrity check")
 	}
 	if !acceptedPresent {
-		if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+		if err := inspectTemplateVersions(ctx, db, storageRoot, &report); err != nil {
+		return Report{}, fmt.Errorf("verify document template files: %w", err)
+	}
+	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
 			return Report{}, err
 		}
 		return report, nil
@@ -287,6 +295,9 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 	}
 	if err := links.Close(); err != nil {
 		return Report{}, err
+	}
+	if err := inspectTemplateVersions(ctx, db, storageRoot, &report); err != nil {
+		return Report{}, fmt.Errorf("verify document template files: %w", err)
 	}
 	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
 		return Report{}, fmt.Errorf("inventory unexpected files: %w", err)
