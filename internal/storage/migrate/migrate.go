@@ -90,6 +90,18 @@ func Apply(ctx context.Context, db *sql.DB) error {
 				position INTEGER NOT NULL CHECK(position >= 0),
 				PRIMARY KEY(revision_id,item_key), UNIQUE(revision_id,position)
 			)`,
+			`CREATE TABLE IF NOT EXISTS group_profile_applications (
+				id INTEGER PRIMARY KEY, group_id INTEGER NOT NULL REFERENCES student_groups(id),
+				profile_id INTEGER NOT NULL REFERENCES requirement_profiles(id),
+				revision_id INTEGER NOT NULL REFERENCES profile_revisions(id),
+				applied_at TEXT NOT NULL DEFAULT (datetime('now')),
+				added_count INTEGER NOT NULL DEFAULT 0,
+				UNIQUE(group_id,revision_id)
+			)`,
+			`CREATE TABLE IF NOT EXISTS requirement_asset_bindings (
+				requirement_id INTEGER PRIMARY KEY REFERENCES requirements(id),
+				asset_id INTEGER NOT NULL REFERENCES template_assets(id)
+			)`,
 			`CREATE TABLE IF NOT EXISTS group_profile_bindings (
 				group_id INTEGER NOT NULL REFERENCES student_groups(id),
 				profile_id INTEGER NOT NULL REFERENCES requirement_profiles(id),
