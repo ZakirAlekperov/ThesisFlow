@@ -306,7 +306,7 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 	if backup != "" {
 		_ = os.Remove(backup)
 	}
-	if previous != "" && previous != relative && previous != "" {
+	if previous != "" && previous != relative {
 		_ = os.Remove(filepath.Join(s.Versions.Root, filepath.FromSlash(previous)))
 	}
 	return Accepted{StudentID: studentID, RequirementID: requirementID, VersionID: versionID, RelativePath: relative}, nil
