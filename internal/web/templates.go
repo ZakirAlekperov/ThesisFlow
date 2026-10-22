@@ -120,7 +120,7 @@ var templatesPage = template.Must(template.New("templates").Parse(`<!doctype htm
       <a href="/search">Поиск студентов</a>
       <a href="/manage">Управление и архив</a>
     </nav>
-    <h1>Шаблоны и тестовые документы</h1>
+    <h1>Шаблоны и тестовые документы</h1><p><a href="/assets">Перейти в мою библиотеку шаблонов документов →</a></p>
     <p class="subtitle">Скачайте реальный файл, затем загрузите его в ThesisFlow обычным способом. Все ФИО и учебные идентификаторы вымышлены.</p>
     <section class="panel" aria-label="Каталог шаблонов">
       {{range .}}
