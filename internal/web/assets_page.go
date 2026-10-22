@@ -1,29 +1,37 @@
 package web
 
 import (
- "bytes"
- "context"
- "crypto/subtle"
- "errors"
- "fmt"
- "html/template"
- "io"
- "mime"
- "net/http"
- "strconv"
+	"bytes"
+	"context"
+	"crypto/subtle"
+	"errors"
+	"fmt"
+	"html/template"
+	"io"
+	"mime"
+	"net/http"
+	"strconv"
 
- "github.com/ZakirAlekperov/ThesisFlow/internal/userassets"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/userassets"
 )
-type AssetLibrary interface{
- Create(context.Context,string,string,string)(userassets.Asset,error)
- List(context.Context)([]userassets.Asset,error)
- AddVersion(context.Context,int64,string,[]byte)(userassets.Version,error)
- Versions(context.Context,int64)([]userassets.Version,error)
- Read(context.Context,int64,int64)(userassets.Version,[]byte,error)
+
+type AssetLibrary interface {
+	Create(context.Context, string, string, string) (userassets.Asset, error)
+	List(context.Context) ([]userassets.Asset, error)
+	AddVersion(context.Context, int64, string, []byte) (userassets.Version, error)
+	Versions(context.Context, int64) ([]userassets.Version, error)
+	Read(context.Context, int64, int64) (userassets.Version, []byte, error)
 }
-type assetDetail struct{userassets.Asset; Versions []userassets.Version}
-type assetPageData struct{Items []assetDetail; CSRF string}
-var assetPage=template.Must(template.New("user-templates").Parse(`<!doctype html><html lang="ru">
+type assetDetail struct {
+	userassets.Asset
+	Versions []userassets.Version
+}
+type assetPageData struct {
+	Items []assetDetail
+	CSRF  string
+}
+
+var assetPage = template.Must(template.New("user-templates").Parse(`<!doctype html><html lang="ru">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Шаблоны документов — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css">
@@ -50,53 +58,98 @@ form{margin:12px 0}</style></head><body>
 </li>{{else}}<li>Файл ещё не загружен</li>{{end}}</ol></section>
 {{else}}<p>Собственные шаблоны ещё не созданы.</p>{{end}}
 </body></html>`))
-func showAssets(w http.ResponseWriter,r *http.Request,s AssetLibrary,csrf string){
- assets,err:=s.List(r.Context());if err!=nil{http.Error(w,"Ошибка загрузки шаблонов.",500);return}
- data:=assetPageData{CSRF:csrf}
- for _,asset:=range assets{
-  history,err:=s.Versions(r.Context(),asset.ID)
-  if err!=nil{http.Error(w,"Ошибка версий.",500);return}
-  data.Items=append(data.Items,assetDetail{Asset:asset,Versions:history})
- }
- renderPage(w,assetPage,data)
+
+func showAssets(w http.ResponseWriter, r *http.Request, s AssetLibrary, csrf string) {
+	assets, err := s.List(r.Context())
+	if err != nil {
+		http.Error(w, "Ошибка загрузки шаблонов.", 500)
+		return
+	}
+	data := assetPageData{CSRF: csrf}
+	for _, asset := range assets {
+		history, err := s.Versions(r.Context(), asset.ID)
+		if err != nil {
+			http.Error(w, "Ошибка версий.", 500)
+			return
+		}
+		data.Items = append(data.Items, assetDetail{Asset: asset, Versions: history})
+	}
+	renderPage(w, assetPage, data)
 }
-func createAsset(w http.ResponseWriter,r *http.Request,s AssetLibrary,csrf string){
- if !formToken(w,r,csrf){return}
- if _,err:=s.Create(r.Context(),r.PostForm.Get("name"),r.PostForm.Get("description"),r.PostForm.Get("requirement_title"));err!=nil{
-  http.Error(w,"Некорректный шаблон.",400);return
- }
- http.Redirect(w,r,"/assets",303)
+func createAsset(w http.ResponseWriter, r *http.Request, s AssetLibrary, csrf string) {
+	if !formToken(w, r, csrf) {
+		return
+	}
+	if _, err := s.Create(r.Context(), r.PostForm.Get("name"), r.PostForm.Get("description"), r.PostForm.Get("requirement_title")); err != nil {
+		http.Error(w, "Некорректный шаблон.", 400)
+		return
+	}
+	http.Redirect(w, r, "/assets", 303)
 }
-func uploadAsset(w http.ResponseWriter,r *http.Request,s AssetLibrary,csrf string){
- id,err:=parseID(r.PathValue("id"));if err!=nil{http.NotFound(w,r);return}
- kind,_,err:=mime.ParseMediaType(r.Header.Get("Content-Type"))
- if err!=nil||kind!="multipart/form-data"{http.Error(w,"Ожидается файл.",415);return}
- r.Body=http.MaxBytesReader(w,r.Body,userassets.MaxBytes+(1<<20))
- if err:=r.ParseMultipartForm(1<<20);err!=nil{http.Error(w,"Файл превышает предел или форма повреждена.",400);return}
- if r.MultipartForm!=nil{defer r.MultipartForm.RemoveAll()}
- if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")),[]byte(csrf))!=1{http.Error(w,"Запрос отклонён.",403);return}
- file,header,err:=r.FormFile("file")
- if err!=nil{http.Error(w,"Выберите файл.",400);return}
- defer file.Close()
- raw,err:=io.ReadAll(io.LimitReader(file,userassets.MaxBytes+1))
- if err!=nil{http.Error(w,"Ошибка чтения.",400);return}
- if _,err:=s.AddVersion(r.Context(),id,header.Filename,raw);err!=nil{
-  http.Error(w,"Разрешены корректные DOCX, XLSX, PDF и TXT не больше 8 МБ.",400);return
- }
- http.Redirect(w,r,"/assets",303)
+func uploadAsset(w http.ResponseWriter, r *http.Request, s AssetLibrary, csrf string) {
+	id, err := parseID(r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	kind, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || kind != "multipart/form-data" {
+		http.Error(w, "Ожидается файл.", 415)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, userassets.MaxBytes+(1<<20))
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		http.Error(w, "Файл превышает предел или форма повреждена.", 400)
+		return
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
+	if subtle.ConstantTimeCompare([]byte(r.PostForm.Get("csrf_token")), []byte(csrf)) != 1 {
+		http.Error(w, "Запрос отклонён.", 403)
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Выберите файл.", 400)
+		return
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, userassets.MaxBytes+1))
+	if err != nil {
+		http.Error(w, "Ошибка чтения.", 400)
+		return
+	}
+	if _, err := s.AddVersion(r.Context(), id, header.Filename, raw); err != nil {
+		http.Error(w, "Разрешены корректные DOCX, XLSX, PDF и TXT не больше 8 МБ.", 400)
+		return
+	}
+	http.Redirect(w, r, "/assets", 303)
 }
-func downloadAsset(w http.ResponseWriter,r *http.Request,s AssetLibrary){
- a,err:=parseID(r.PathValue("id"));if err!=nil{http.NotFound(w,r);return}
- v,err:=parseID(r.PathValue("version"));if err!=nil{http.NotFound(w,r);return}
- info,data,err:=s.Read(r.Context(),a,v)
- if err!=nil{http.NotFound(w,r);return}
- w.Header().Set("Content-Type","application/octet-stream")
- w.Header().Set("Content-Disposition",mime.FormatMediaType("attachment",map[string]string{"filename":info.Filename}))
- w.Header().Set("X-Content-Type-Options","nosniff")
- w.Header().Set("Cache-Control","no-store")
- w.Header().Set("Content-Length",strconv.Itoa(len(data)))
- _,_=w.Write(data)
+func downloadAsset(w http.ResponseWriter, r *http.Request, s AssetLibrary) {
+	a, err := parseID(r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	v, err := parseID(r.PathValue("version"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	info, data, err := s.Read(r.Context(), a, v)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": info.Filename}))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	_, _ = w.Write(data)
 }
-var _=bytes.Buffer{}
-var _=errors.Is
-var _=fmt.Sprint
+
+var _ = bytes.Buffer{}
+var _ = errors.Is
+var _ = fmt.Sprint

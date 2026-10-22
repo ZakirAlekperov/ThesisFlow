@@ -1,15 +1,19 @@
 package web
 
 import (
- "html/template"
- "context"
- "fmt"
- "net/http"
+	"context"
+	"fmt"
+	"html/template"
+	"net/http"
 
- "github.com/ZakirAlekperov/ThesisFlow/internal/profiles"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/profiles"
 )
-type portableProfileImport interface{ImportJSON(ctx context.Context,data []byte)(profiles.Profile,error)}
-var profileImportPage=template.Must(template.New("profile-json-import").Parse(`<!doctype html><html lang="ru"><head>
+
+type portableProfileImport interface {
+	ImportJSON(ctx context.Context, data []byte) (profiles.Profile, error)
+}
+
+var profileImportPage = template.Must(template.New("profile-json-import").Parse(`<!doctype html><html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Импорт профиля — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css"><style>body{font:16px/1.5 system-ui,sans-serif;max-width:850px;margin:28px auto;padding:0 16px}
 textarea{display:block;width:100%;min-height:240px;font:14px monospace}
@@ -28,30 +32,58 @@ button{font:inherit;padding:9px}</style></head><body><a href="/profiles">← П�
 <textarea name="json" readonly hidden>{{.JSON}}</textarea>
 <button>Создать новый профиль</button></form></section>{{end}}
 </body></html>`))
-type profileImportData struct{CSRF,JSON string;Ready bool;Profile profiles.Profile}
-func profileImportForm(w http.ResponseWriter,r *http.Request,csrf string){
- renderPage(w,profileImportPage,profileImportData{CSRF:csrf})
+
+type profileImportData struct {
+	CSRF, JSON string
+	Ready      bool
+	Profile    profiles.Profile
 }
-func profileImportPreview(w http.ResponseWriter,r *http.Request,csrf string){
- if !formToken(w,r,csrf){return}
- raw:=r.PostForm.Get("json")
- p,err:=profiles.DecodeJSON([]byte(raw))
- if err!=nil{http.Error(w,"JSON профиля неверен, слишком велик либо содержит дубликаты.",400);return}
- renderPage(w,profileImportPage,profileImportData{CSRF:csrf,JSON:raw,Ready:true,Profile:p})
+
+func profileImportForm(w http.ResponseWriter, r *http.Request, csrf string) {
+	renderPage(w, profileImportPage, profileImportData{CSRF: csrf})
 }
-func profileImportCommit(w http.ResponseWriter,r *http.Request,s portableProfileImport,csrf string){
- if !formToken(w,r,csrf){return}
- raw:=r.PostForm.Get("json")
- p,err:=s.ImportJSON(r.Context(),[]byte(raw))
- if err!=nil{http.Error(w,"Не удалось создать новый профиль. Проверьте уникальность названия.",400);return}
- http.Redirect(w,r,fmt.Sprintf("/profiles/%d",p.ID),303)
+func profileImportPreview(w http.ResponseWriter, r *http.Request, csrf string) {
+	if !formToken(w, r, csrf) {
+		return
+	}
+	raw := r.PostForm.Get("json")
+	p, err := profiles.DecodeJSON([]byte(raw))
+	if err != nil {
+		http.Error(w, "JSON профиля неверен, слишком велик либо содержит дубликаты.", 400)
+		return
+	}
+	renderPage(w, profileImportPage, profileImportData{CSRF: csrf, JSON: raw, Ready: true, Profile: p})
 }
-func profileExport(w http.ResponseWriter,r *http.Request,s ProfileManager){
- id,err:=parseID(r.PathValue("id"));if err!=nil{http.NotFound(w,r);return}
- p,err:=s.Get(r.Context(),id);if err!=nil{http.NotFound(w,r);return}
- raw,err:=profiles.EncodeJSON(p);if err!=nil{http.Error(w,"Не удалось собрать профиль.",500);return}
- w.Header().Set("Content-Type","application/json; charset=utf-8")
- w.Header().Set("Content-Disposition",`attachment; filename="thesisflow-profile.json"`)
- w.Header().Set("X-Content-Type-Options","nosniff")
- _,_=w.Write(raw)
+func profileImportCommit(w http.ResponseWriter, r *http.Request, s portableProfileImport, csrf string) {
+	if !formToken(w, r, csrf) {
+		return
+	}
+	raw := r.PostForm.Get("json")
+	p, err := s.ImportJSON(r.Context(), []byte(raw))
+	if err != nil {
+		http.Error(w, "Не удалось создать новый профиль. Проверьте уникальность названия.", 400)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/profiles/%d", p.ID), 303)
+}
+func profileExport(w http.ResponseWriter, r *http.Request, s ProfileManager) {
+	id, err := parseID(r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	p, err := s.Get(r.Context(), id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	raw, err := profiles.EncodeJSON(p)
+	if err != nil {
+		http.Error(w, "Не удалось собрать профиль.", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="thesisflow-profile.json"`)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = w.Write(raw)
 }

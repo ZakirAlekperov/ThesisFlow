@@ -84,7 +84,9 @@ func (r *Repository) Init(ctx context.Context) error {
 		requirement_id INTEGER NOT NULL REFERENCES requirements(id),
 		kind TEXT NOT NULL CHECK(kind IN ('date','none')),
 		due_date TEXT NOT NULL DEFAULT '',
-		PRIMARY KEY(student_id,requirement_id))`);err!=nil{return fmt.Errorf("initialize due overrides: %w",err)}
+		PRIMARY KEY(student_id,requirement_id))`); err != nil {
+		return fmt.Errorf("initialize due overrides: %w", err)
+	}
 	return nil
 }
 
