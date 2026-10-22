@@ -32,6 +32,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/students"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
 )
 
@@ -114,7 +115,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 // RU: Восстановленное хранилище проверяется до любых изменений SQLite.
 func startWithPreflight(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error, verifyExisting bool) error {
 	if verifyExisting {
-		if err := checkWorkspaceForLaunch(ctx, filepath.Dir(databasePath)); err != nil {
+		if _, err := validatedWorkspaceDB(filepath.Dir(databasePath)); err != nil {
 			return err
 		}
 	}
@@ -126,7 +127,7 @@ func startWithPreflight(ctx context.Context, output io.Writer, port, databasePat
 	// Revalidate under the exclusive lock, eliminating any application-level
 	// race with another ThesisFlow process during the initial preflight.
 	if verifyExisting {
-		if err := checkWorkspaceForLaunch(ctx, filepath.Dir(databasePath)); err != nil {
+		if err := preflightWorkspace(ctx, filepath.Dir(databasePath)); err != nil {
 			return err
 		}
 	}
@@ -179,6 +180,14 @@ func startWithPreflight(ctx context.Context, output io.Writer, port, databasePat
 	// RU: Восстанавливаем незавершённую приёмку до открытия браузера.
 	if _, err := reviewService.RecoverPending(ctx); err != nil {
 		return fmt.Errorf("workspace approval recovery needs attention: %w", err)
+	}
+	// Verify the complete restored workspace after journal replay and
+	// before exposing any HTTP route to a user.
+	// RU: Сверяем версии и принятые копии после восстановления операций.
+	if verifyExisting {
+		report, err := workspace.Check(ctx, db, versions.Root)
+		if err != nil {return fmt.Errorf("validate restored workspace: %w", err)}
+		if !report.Healthy() {return fmt.Errorf("restored workspace has %d integrity problems", len(report.Issues))}
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
