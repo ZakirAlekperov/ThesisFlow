@@ -29,13 +29,14 @@ type StudentStore interface {
 // groupStudentsData supplies the escaped group detail HTML template.
 // RU: groupStudentsData передаёт данные в безопасный шаблон страницы группы.
 type groupStudentsData struct {
-	Group         groups.Group
-	Students      []students.Student
-	Requirements  []requirements.Requirement
-	CSRFToken     string
-	FullName      string
-	EducationalID string
-	Error         string
+	Group               groups.Group
+	Students            []students.Student
+	Requirements        []requirements.Requirement
+	CanEditRequirements bool
+	CSRFToken           string
+	FullName            string
+	EducationalID       string
+	Error               string
 }
 
 // groupStudentsTemplate renders the student form and list without JavaScript.
@@ -147,7 +148,18 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
         {{range .Requirements}}
         <li data-requirement-id="{{.ID}}">
           <span class="student-name">{{.Title}}</span>
-          {{if .DueDate}}<span class="student-id">Срок: {{.DueDate}}</span>{{end}}
+          <span class="student-id">Срок: {{if .DueDate}}{{.DueDate}}{{else}}не назначен{{end}}</span>
+          {{if $.CanEditRequirements}}
+          <details class="tf-requirement-actions">
+            <summary>Редактировать</summary>
+            <form method="post" action="/groups/{{$.Group.ID}}/requirements/{{.ID}}/update">
+              <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+              <label>Название документа <input name="title" value="{{.Title}}" required maxlength="200"></label>
+              <label>Срок сдачи <input type="date" name="due_date" value="{{.DueDate}}"></label>
+              <button type="submit">Сохранить требование</button>
+            </form>
+          </details>
+          {{end}}
         </li>
         {{end}}
       </ul>
@@ -225,10 +237,15 @@ func renderGroupStudents(w http.ResponseWriter, r *http.Request, groupStore Grou
 			return
 		}
 	}
+	canEdit := false
+	if len(requirementStores) > 0 && requirementStores[0] != nil {
+		_, canEdit = requirementStores[0].(RequirementEditor)
+	}
 	var rendered bytes.Buffer
 	if err := groupStudentsTemplate.Execute(&rendered, groupStudentsData{
 		Group: group, Students: items, Requirements: required, CSRFToken: token,
-		FullName: name, EducationalID: educationalID, Error: message,
+		CanEditRequirements: canEdit,
+		FullName:            name, EducationalID: educationalID, Error: message,
 	}); err != nil {
 		http.Error(w, "Не удалось отобразить страницу группы.", http.StatusInternalServerError)
 		return
