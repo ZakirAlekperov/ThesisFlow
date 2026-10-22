@@ -325,6 +325,12 @@ func (s *Service) Apply(ctx context.Context, groupID, profileID int64, token str
 			_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
 		}
 	}()
+	var latestRevisionID int64
+	if err := conn.QueryRowContext(ctx,`SELECT id FROM profile_revisions
+	 WHERE profile_id=? ORDER BY number DESC LIMIT 1`,profileID).Scan(&latestRevisionID);err!=nil {
+		return Plan{},err
+	}
+	if latestRevisionID!=p.RevisionID{return Plan{},ErrStale}
 	plan, err := makePlan(ctx, conn, groupID, p)
 	if err != nil {
 		return Plan{}, err
@@ -336,18 +342,31 @@ func (s *Service) Apply(ctx context.Context, groupID, profileID int64, token str
 		return Plan{}, ErrConflict
 	}
 	// A group cannot silently switch to an entirely different profile.
-	var otherID int64
-	err = conn.QueryRowContext(ctx, "SELECT profile_id FROM group_profile_state WHERE group_id=?", groupID).Scan(&otherID)
+	var otherID,previousRevisionID int64
+	err = conn.QueryRowContext(ctx, "SELECT profile_id,revision_id FROM group_profile_state WHERE group_id=?", groupID).Scan(&otherID,&previousRevisionID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, err
 	}
 	if err == nil && otherID != profileID {
 		return Plan{}, ErrConflict
 	}
+	if previousRevisionID==p.RevisionID {
+		// True idempotency: a repeated application never changes applied_at
+		// or produces a second history record.
+		// RU: Повторение той же ревизии не меняет журнал.
+		for _,action:=range plan.Actions{
+			if action.Kind!="unchanged"{return Plan{},ErrConflict}
+		}
+		if _,err:=conn.ExecContext(ctx,"COMMIT");err!=nil{return Plan{},err}
+		committed=true
+		return plan,nil
+	}
+	added:=0
 	for _, action := range plan.Actions {
 		if action.Kind != "add" {
 			continue
 		}
+		added++
 		res, err := conn.ExecContext(ctx, `INSERT INTO requirements(group_id,student_id,title,title_key,due_date)
   VALUES(?,NULL,?,?, '')`, groupID, action.Title, strings.ToLower(action.Title))
 		if err != nil {
@@ -366,6 +385,8 @@ func (s *Service) Apply(ctx context.Context, groupID, profileID int64, token str
  VALUES(?,?,?) ON CONFLICT(group_id) DO UPDATE SET revision_id=excluded.revision_id,applied_at=datetime('now')`, groupID, profileID, p.RevisionID); err != nil {
 		return Plan{}, err
 	}
+	if _,err:=conn.ExecContext(ctx,`INSERT INTO group_profile_applications(group_id,profile_id,revision_id,added_count)
+	 VALUES(?,?,?,?)`,groupID,profileID,p.RevisionID,added);err!=nil{return Plan{},err}
 	if _, err := conn.ExecContext(ctx, "COMMIT"); err != nil {
 		return Plan{}, err
 	}
