@@ -1,41 +1,199 @@
-/* ThesisFlow 0.2.0: shared local UI theme, no external CSS toolkit. */
+/*
+ * ThesisFlow UI concept C / Дизайн-система C.
+ *
+ * Scope: first-party server-rendered pages. Existing inline page styles are
+ * progressively replaced by these tokens. Crucial colors use specific rules
+ * to prevent stale 0.1/0.2 declarations from overriding light/dark themes.
+ * Contrast rules: buttons always have white text on solid blue; neutral
+ * surfaces and HTML canvas follow the active color scheme.
+ */
 :root {
   color-scheme: light;
-  --tf-bg: #f4f7fb; --tf-panel: #ffffff; --tf-text: #1d2a40;
-  --tf-muted: #5e6c82; --tf-border: #dbe3ef; --tf-accent: #2456a9;
+  --tf-bg: #f5f7fc;
+  --tf-panel: #fff;
+  --tf-panel-alt: #eef3fa;
+  --tf-text: #192741;
+  --tf-muted: #526680;
+  --tf-border: #d7e0ed;
+  --tf-accent: #1d57b4;
+  --tf-button: #2358bb;
+  --tf-button-hover: #17428d;
+  --tf-button-text: #fff;
+  --tf-outline: #2a69d1;
+  --tf-table-head: #e8eef8;
+  --tf-success: #176a44;
+  --tf-warning: #97511a;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --tf-bg: #111827; --tf-panel: #1d293c; --tf-text: #ecf2ff;
-  --tf-muted: #b1bfd3; --tf-border: #344259; --tf-accent: #84afff;
+  --tf-bg: #101827;
+  --tf-panel: #1c293d;
+  --tf-panel-alt: #26344b;
+  --tf-text: #ecf2fc;
+  --tf-muted: #afc0d7;
+  --tf-border: #3a4b63;
+  --tf-accent: #92bdff;
+  --tf-button: #235ac2;
+  --tf-button-hover: #306ad8;
+  --tf-button-text: #fff;
+  --tf-outline: #a0c7ff;
+  --tf-table-head: #2a3b54;
+  --tf-success: #70d8a0;
+  --tf-warning: #ffbf81;
 }
-body { background: var(--tf-bg) !important; color: var(--tf-text) !important; }
-.panel, .metric, main:has(> .metrics), section.panel {
-  background: var(--tf-panel) !important; color: var(--tf-text) !important;
+/* The root canvas must be themed too: otherwise narrow, max-width body
+ * rules leave light bands above and below the dark application.
+ * RU: Темизируем весь viewport, а не только узкий body.
+ */
+html, body {
+  min-height: 100%;
+  background: var(--tf-bg) !important;
+  color: var(--tf-text) !important;
+}
+html { background-color: var(--tf-bg) !important; }
+body { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
+h1, h2, h3, h4, strong, label, th { color: var(--tf-text); }
+p, .empty, .subtitle, .group-id, .student-id, .muted, .note,
+small, .import-hint { color: var(--tf-muted) !important; }
+a, a:visited, .back { color: var(--tf-accent) !important; }
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--tf-outline) !important;
+  outline-offset: 2px;
+}
+.panel, .metric, section.panel, .grid, .tf-preview,
+main:has(> .metrics) {
+  background: var(--tf-panel) !important;
+  color: var(--tf-text) !important;
   border-color: var(--tf-border) !important;
 }
-a, .back { color: var(--tf-accent) !important; }
-p, .empty, .subtitle, .group-id, .student-id, .muted, .note, small {
-  color: var(--tf-muted) !important;
-}
 input, select, textarea {
-  background: var(--tf-panel) !important; color: var(--tf-text) !important;
+  background: var(--tf-panel) !important;
+  color: var(--tf-text) !important;
   border: 1px solid var(--tf-border) !important;
 }
-button { cursor: pointer; }
+input::placeholder, textarea::placeholder { color: var(--tf-muted); opacity: 1; }
+/* Preserve standard HTML submit buttons, with consistent contrast across
+ * home, management, requirements and Excel preview forms.
+ * RU: Цвет текста кнопок не наследуется от ссылок и карточек.
+ */
+button, input[type="submit"], .group-form button, .student-form button,
+.requirement-form button, .import-form button, .matrix-filter button {
+  background: var(--tf-button) !important;
+  color: var(--tf-button-text) !important;
+  border: 1px solid transparent !important;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:hover, input[type="submit"]:hover,
+.group-form button:hover, .requirement-form button:hover {
+  background: var(--tf-button-hover) !important;
+}
+button:disabled { opacity: .6; cursor: not-allowed; }
 #thesisflow-theme-toggle {
-  position: fixed; top: 10px; right: 14px; z-index: 25;
-  border: 1px solid var(--tf-border); background: var(--tf-panel);
-  color: var(--tf-text); border-radius: 10px; padding: 9px 12px;
-  box-shadow: 0 3px 14px rgba(0,0,0,0.1);
+  position: fixed;
+  top: 10px;
+  right: 14px;
+  z-index: 25;
+  border: 1px solid var(--tf-border) !important;
+  background: var(--tf-panel) !important;
+  color: var(--tf-text) !important;
+  border-radius: 10px;
+  padding: 8px 13px;
+  font: inherit;
+  box-shadow: 0 3px 12px rgba(0,0,0,.12);
 }
-:root[data-theme="dark"] table td {
-  background: var(--tf-panel); border-color: var(--tf-border);
+#thesisflow-theme-toggle:hover { background: var(--tf-panel-alt) !important; }
+/* Concept C uses compact horizontal navigation, never low-contrast
+ * blue text on a blue active tab.
+ */
+.tabs, .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  border-bottom: 1px solid var(--tf-border) !important;
+  padding: 4px 0 14px !important;
 }
+.tabs a, .links a {
+  display: inline-flex;
+  text-decoration: none;
+  align-items: center;
+  padding: 9px 13px;
+  border-radius: 8px;
+  font-weight: 500;
+  color: var(--tf-accent) !important;
+}
+.tabs a:hover, .links a:hover { background: var(--tf-panel-alt) !important; }
+.tabs a[aria-current="page"], .links a[aria-current="page"] {
+  color: var(--tf-button-text) !important;
+  background: var(--tf-button) !important;
+  font-weight: 650;
+}
+.tabs a[aria-current="page"]:hover { background: var(--tf-button-hover) !important; }
+/* Every data table receives theme-consistent header and body contrast. */
+table { color: var(--tf-text) !important; border-collapse: collapse; }
+table th, table td {
+  border-color: var(--tf-border) !important;
+  color: var(--tf-text) !important;
+}
+table th, table thead, table tr:first-child:not(:has(th)) {
+  background: var(--tf-table-head) !important;
+}
+table td, table tbody tr { background: var(--tf-panel) !important; }
+table tbody tr:hover td { background: var(--tf-panel-alt) !important; }
+:root[data-theme="dark"] .grid th:first-child {
+  background: var(--tf-table-head) !important;
+}
+/* Excel preview used a hard-coded white main canvas and light first row.
+ * RU: Устраняем белую карточку/светлый текст на белом фоне XLSX.
+ */
+.tf-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.tf-preview h1, .tf-preview h2, .tf-preview p,
+.tf-preview label { color: var(--tf-text) !important; }
+.tf-preview .preview-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+}
+.tf-preview .preview-table thead th {
+  text-align: left;
+  background: var(--tf-table-head) !important;
+  color: var(--tf-text) !important;
+  padding: 10px 12px;
+  font-weight: 650;
+  border: 1px solid var(--tf-border) !important;
+}
+.tf-preview .preview-table tbody td {
+  background: var(--tf-panel) !important;
+  color: var(--tf-text) !important;
+  padding: 9px 12px;
+  border: 1px solid var(--tf-border) !important;
+}
+.tf-preview .preview-table tbody tr:nth-child(even) td {
+  background: var(--tf-panel-alt) !important;
+}
+/* Existing requirements list: compact rows and editable forms. */
+.tf-requirement-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.tf-requirement-actions summary { color: var(--tf-accent); cursor: pointer; }
+.tf-requirement-actions form { display: grid; gap: 8px; padding: 12px 0; }
+.tf-requirement-actions input { max-width: 330px; }
 @media (max-width: 720px) {
-  #thesisflow-theme-toggle { position: static; margin: 8px; }
+  #thesisflow-theme-toggle { position: static; margin: 10px; }
+  .tabs, .links { gap: 3px; }
+  .tabs a, .links a { padding: 8px 10px; }
+  .tf-preview { padding: 15px !important; }
 }
 @media print {
-  #thesisflow-theme-toggle { display: none !important; }
-  body { background: white !important; color: black !important; }
+  #thesisflow-theme-toggle, .tf-requirement-actions { display: none !important; }
+  html, body { background: #fff !important; color: #000 !important; }
 }

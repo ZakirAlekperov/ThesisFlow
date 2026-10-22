@@ -93,6 +93,7 @@ type previewPage struct {
 	Sheets       []string
 	SheetName    string
 	Rows         [][]string
+	Headers      []string
 	PreviewToken string
 	CSRFToken    string
 	NameHeader   string
@@ -102,7 +103,7 @@ type previewPage struct {
 
 // previewTemplate escapes all cells and form fields through html/template.
 // RU: previewTemplate экранирует значения XLSX и безопасно отображает таблицу.
-var previewTemplate = template.Must(template.New("xlsx-preview").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Предпросмотр Excel — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;color:#202939;background:#f6f7fb;max-width:980px;margin:35px auto;padding:0 20px}main{background:white;border:1px solid #dce3ed;padding:24px;border-radius:12px}label{display:block;margin:10px 0}input,select,button{padding:10px;border:1px solid #c6ced9;border-radius:7px;font:inherit}button{background:#214eaf;color:white;cursor:pointer}table{border-collapse:collapse;width:100%;margin:20px 0}td{padding:9px;border:1px solid #dce3ed;overflow-wrap:anywhere}tr:first-child{background:#eef4fc;font-weight:600}a{color:#214eaf}.error{color:#a51d2d}small{color:#657388}</style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script></head><body><main>
+var previewTemplate = template.Must(template.New("xlsx-preview").Parse(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Предпросмотр Excel — ThesisFlow</title><style>body{font-family:system-ui,sans-serif;color:#202939;background:#f6f7fb;max-width:980px;margin:35px auto;padding:0 20px}main{background:white;border:1px solid #dce3ed;padding:24px;border-radius:12px}label{display:block;margin:10px 0}input,select,button{padding:10px;border:1px solid #c6ced9;border-radius:7px;font:inherit}button{background:#214eaf;color:white;cursor:pointer}table{border-collapse:collapse;width:100%;margin:20px 0}td{padding:9px;border:1px solid #dce3ed;overflow-wrap:anywhere}tr:first-child{background:#eef4fc;font-weight:600}a{color:#214eaf}.error{color:#a51d2d}small{color:#657388}</style><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script></head><body><main class="tf-preview">
 <a href="/groups/{{.GroupID}}">← Назад к группе</a><h1>Предпросмотр импорта Excel</h1>
 <p>Записи ещё не добавлены в базу. Выберите вкладку и проверьте столбцы перед подтверждением.</p>
 {{if .Error}}<p class="error" role="alert">{{.Error}}</p>{{end}}
@@ -112,7 +113,7 @@ var previewTemplate = template.Must(template.New("xlsx-preview").Parse(`<!doctyp
 <button type="submit">Показать выбранный лист</button>
 </form>
 <h2>Первые строки файла</h2>
-<table aria-label="Предпросмотр Excel">{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>{{end}}</table>
+<table class="preview-table" aria-label="Предпросмотр Excel"><thead><tr>{{range .Headers}}<th scope="col">{{.}}</th>{{end}}</tr></thead><tbody>{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>{{end}}</tbody></table>
 <form method="post" action="/groups/{{.GroupID}}/import/commit">
 <input type="hidden" name="csrf_token" value="{{.CSRFToken}}"><input type="hidden" name="preview_token" value="{{.PreviewToken}}">
 <input type="hidden" name="sheet_name" value="{{.SheetName}}">
@@ -188,8 +189,15 @@ func renderPreview(w http.ResponseWriter, r *http.Request, store *previewStore, 
 			rows[i] = rows[i][:14]
 		}
 	}
+	// Separate column headers from data cells for accessible table markup.
+	// RU: Первая строка XLSX — заголовки, остальные — данные.
+	var headers []string
+	if len(rows) > 0 {
+		headers = rows[0]
+		rows = rows[1:]
+	}
 	var b bytes.Buffer
-	if err := previewTemplate.Execute(&b, previewPage{GroupID: entry.GroupID, Sheets: sheets, SheetName: sheetName, Rows: rows, PreviewToken: stageToken, CSRFToken: csrf, NameHeader: "ФИО", IDHeader: "Учебный ID", Error: message}); err != nil {
+	if err := previewTemplate.Execute(&b, previewPage{GroupID: entry.GroupID, Sheets: sheets, SheetName: sheetName, Headers: headers, Rows: rows, PreviewToken: stageToken, CSRFToken: csrf, NameHeader: "ФИО", IDHeader: "Учебный ID", Error: message}); err != nil {
 		http.Error(w, "Ошибка отображения Excel.", 500)
 		return
 	}

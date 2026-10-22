@@ -116,6 +116,9 @@ var templatesPage = template.Must(template.New("templates").Parse(`<!doctype htm
     <nav class="tabs" aria-label="Разделы приложения">
       <a href="/">Учебные группы</a>
       <a href="/templates" aria-current="page">Шаблоны</a>
+      <a href="/dashboard">Панель преподавателя</a>
+      <a href="/search">Поиск студентов</a>
+      <a href="/manage">Управление и архив</a>
     </nav>
     <h1>Шаблоны и тестовые документы</h1>
     <p class="subtitle">Скачайте реальный файл, затем загрузите его в ThesisFlow обычным способом. Все ФИО и учебные идентификаторы вымышлены.</p>
