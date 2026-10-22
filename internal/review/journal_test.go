@@ -8,7 +8,6 @@ import (
  "strings"
  "testing"
 
- "github.com/ZakirAlekperov/ThesisFlow/internal/materials"
 )
 
 var simulatedCrash=errors.New("simulated process interruption")
@@ -141,7 +140,6 @@ func TestRecoveryRefusesUnknownModifiedFile(t *testing.T){
  if err!=nil||string(got)!="manual third-party edit"{t.Fatalf("edited content destroyed: %q %v",got,err)}
  pending,err:=next.PendingCount(ctx)
  if err!=nil||pending!=1{t.Fatalf("conflict was hidden: %d %v",pending,err)}
- _=materials.Accepted
 }
 
 func TestAcceptRejectsTamperedPriorCopyWithoutCreatingIntent(t *testing.T){
