@@ -41,7 +41,7 @@ func dateValid(v string) bool {
 }
 func (s *Service) GroupDeadlines(ctx context.Context, groupID int64) ([]Deadline, error) {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,title,due_date FROM requirements
- WHERE group_id=? AND student_id IS NULL ORDER BY title_key,id`, groupID)
+ WHERE group_id=? AND student_id IS NULL ORDER BY sort_order,title_key,id`, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func (s *Service) Calendar(ctx context.Context, groupID int64) ([]CalendarEntry,
 	}
 	defer rows.Close()
 	result := []CalendarEntry{}
-	today := s.Now().In(time.Local)
+	today := s.Now()
 	y, m, d := today.Date()
 	now := time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 	for rows.Next() {
