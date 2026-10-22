@@ -144,8 +144,15 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 	}
 	// Human-readable accepted documents are indexed separately from uploads.
 	// RU: Принятые файлы индексируются отдельно от всех загруженных версий.
-	if err := review.NewService(db, versions).Init(ctx); err != nil {
+	reviewService := review.NewService(db, versions)
+	if err := reviewService.Init(ctx); err != nil {
 		return fmt.Errorf("initialize accepted document projection: %w", err)
+	}
+	// Resolve interrupted approvals before HTTP users or backup jobs can
+	// observe an inconsistent accepted projection.
+	// RU: Восстанавливаем незавершённую приёмку до открытия браузера.
+	if _, err := reviewService.RecoverPending(ctx); err != nil {
+		return fmt.Errorf("workspace approval recovery needs attention: %w", err)
 	}
 	// The same SQLite repository serves group listing and creation requests.
 	// RU: Чтение и создание групп используют общий SQLite-репозиторий.
@@ -166,7 +173,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 			Requirements: requirements.NewRepository(db),
 			Statuses:     materials.NewRepository(db),
 			Versions:     versions,
-			Reviews:      review.NewService(db, versions),
+			Reviews:      reviewService,
 			Thesis:       thesis.NewRepository(db),
 		},
 	})
