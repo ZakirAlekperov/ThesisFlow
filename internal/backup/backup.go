@@ -321,6 +321,9 @@ func Restore(archivePath, destination string) error {
 			return fmt.Errorf("%w: hash mismatch %s", ErrUnsafeArchive, name)
 		}
 	}
+	if err := checkRestoredWorkspace(staging); err != nil {
+		return fmt.Errorf("%w: %v", ErrUnsafeArchive, err)
+	}
 	if err := checkNewPath(destination); err != nil {
 		return err
 	}
