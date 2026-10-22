@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/analytics"
 )
@@ -117,19 +116,26 @@ func WriteCSV(w io.Writer, report analytics.Report) error {
 }
 
 func escapeText(value string) string {
-	// OOXML allows tabs, LF and CR, but not other XML control characters.
+	// Limit Excel strings to 32,767 Unicode characters and remove XML 1.0
+	// forbidden code points, including U+FFFE and U+FFFF.
+	// RU: Исправляем недопустимые символы XML, сохраняя кириллицу.
 	var clean strings.Builder
+	count := 0
 	for _, r := range value {
-		if r == 9 || r == 10 || r == 13 || r >= 32 {
-			if clean.Len()+utf8.RuneLen(r) > 131072 {
-				break
-			}
-			clean.WriteRune(r)
+		if count >= 32767 {
+			break
 		}
+		if r != 9 && r != 10 && r != 13 &&
+			!((r >= 0x20 && r <= 0xD7FF) ||
+				(r >= 0xE000 && r <= 0xFFFD) ||
+				(r >= 0x10000 && r <= 0x10FFFF)) {
+			continue
+		}
+		clean.WriteRune(r)
+		count++
 	}
-	value = string([]rune(clean.String())[:min(len([]rune(clean.String())), 32767)])
 	var out bytes.Buffer
-	_ = xml.EscapeText(&out, []byte(value))
+	_ = xml.EscapeText(&out, []byte(clean.String()))
 	return out.String()
 }
 
