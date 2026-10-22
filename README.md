@@ -3,7 +3,7 @@
 Локальный помощник преподавателя для управления материалами выпускных
 квалификационных работ. / A local graduation-thesis document manager for educators.
 
-**Status / Статус: 0.4.0-dev — версия в разработке, не стабильный релиз.**
+**Status / Статус: 0.5.0-dev — версия в разработке, не стабильный релиз.**
 
 ## Возможности (RU)
 
@@ -31,6 +31,12 @@ ThesisFlow запускается как одно локальное прило�
   принятыми файлами: группа / студент / нормализованное имя документа.
 - Общая ведомость по группе, фильтры статусов и просрочек, печатный отчёт,
   панель готовности и поиск студентов.
+- Раздел «Аналитика и отчёты» (`/reports`): согласованные метрики активных
+  групп и студентов, персональные требования, фильтры и сортировки,
+  отдельный признак ранее принятой копии, просрочки в днях, переходы
+  к нужной ВКР, недельная динамика реальных событий. Выгрузки CSV с
+  защитой от формульной инъекции и настоящего форматированного XLSX с
+  листами «Сводка», «Студенты», «Документы», печать в PDF через браузер.
 - Раздел скачиваемых шаблонов и тестовых DOCX/XLSX.
 - Резервная копия ZIP через настройки и проверенное восстановление в
   **отдельную** папку, не заменяющее активные данные.
@@ -78,6 +84,7 @@ go test -race ./...
 - [Возможности и приёмка 0.2.0](docs/release-0.2.0.md)
 - [План версии 0.4.0 и приёмка рецензирования](docs/release-0.4.0.md)
 - [Сценарии ручной приёмки 0.4.0](docs/acceptance-0.4.0.md)
+- [Реализация и приёмка аналитики 0.5.0](docs/release-0.5.0.md)
 - [Оформление варианта C](docs/ui-concept-c.md)
 - [Редактирование требований](docs/requirement-edit-0.3.md)
 - [Контроль обновления статусов](docs/status-freshness-0.3.md)
@@ -94,7 +101,7 @@ ThesisFlow is a single local Go application that opens a server-rendered
 browser UI and keeps student/thesis metadata in SQLite. No Docker, cloud,
 React, Node.js or external database is required.
 
-Core capabilities: groups, student records and XLSX import with worksheet
+Core capabilities: current analytics with 3-sheet XLSX/CSV reporting, group and student readiness and factual weekly activity; groups, student records and XLSX import with worksheet
 preview/confirmation; configurable shared document requirements and due
 dates; immutable uploaded revisions and an approved readable-folder
 projection; thesis topic/order metadata; approval/revision history; grouped
