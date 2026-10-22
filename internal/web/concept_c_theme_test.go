@@ -19,7 +19,7 @@ func TestConceptCThemeStyle(t *testing.T) {
     if r.Code != http.StatusOK { t.Fatalf("CSS HTTP %d", r.Code) }
     css := r.Body.String()
     for _, want := range []string{
-        "html, body", "--tf-button-text", ".tabs a[aria-current="page"]",
+        "html, body", "--tf-button-text", ".tabs a[aria-current=\"page\"]",
         ".tf-preview", "color: var(--tf-button-text)", "background: var(--tf-bg)",
     } {
         if !strings.Contains(css, want) { t.Errorf("CSS missing %q", want) }
@@ -34,7 +34,7 @@ func TestConceptCHomeNavigation(t *testing.T) {
     if rec.Code != http.StatusOK { t.Fatalf("home HTTP %d", rec.Code) }
     for _, want := range []string{
         "Учебные группы", "Шаблоны", "Панель преподавателя",
-        "Поиск студентов", "Управление и архив", "aria-current="page"",
+        "Поиск студентов", "Управление и архив", "aria-current=\"page\"",
     } {
         if !strings.Contains(rec.Body.String(), want) { t.Errorf("navigation missing %q", want) }
     }
