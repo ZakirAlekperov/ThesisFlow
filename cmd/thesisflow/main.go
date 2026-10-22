@@ -33,6 +33,7 @@ import (
 	"github.com/ZakirAlekperov/ThesisFlow/internal/thesis"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/web"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspaceselect"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/workspacelock"
 )
 
@@ -106,14 +107,14 @@ func run(ctx context.Context, output io.Writer, port string, handler http.Handle
 // RU: start открывает постоянную базу до запуска HTTP-интерфейса.
 // При завершении работы соединение с базой закрывается.
 func start(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error) error {
-	return startWithPreflight(ctx, output, port, databasePath, openBrowser, false)
+	return startWithPreflight(ctx, output, port, databasePath, openBrowser, false, nil)
 }
 
 // startWithPreflight holds a cross-process workspace lock for the full
 // server lifetime. Explicitly selected restored workspaces are verified
 // BEFORE any migrations or HTTP route is initialized.
 // RU: Восстановленное хранилище проверяется до любых изменений SQLite.
-func startWithPreflight(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error, verifyExisting bool) error {
+func startWithPreflight(ctx context.Context, output io.Writer, port, databasePath string, openBrowser func(string) error, verifyExisting bool, selection *workspaceselect.Service) error {
 	if verifyExisting {
 		if _, err := validatedWorkspaceDB(filepath.Dir(databasePath)); err != nil {
 			return err
@@ -202,7 +203,8 @@ func startWithPreflight(ctx context.Context, output io.Writer, port, databasePat
 		Management:   management.NewRepository(db),
 		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
 		Doctor:       workspaceDoctor{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
-		Restore:      workspaceRestore{root: filepath.Join(filepath.Dir(databasePath), "restores")},
+		Restore:      workspaceRestore{root: recoveryRoot(selection, databasePath)},
+		Selection:    selection,
 		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		ReviewQueue:  reviewqueue.New(db),
 		Analytics:    analytics.New(db),
@@ -232,8 +234,12 @@ func launch(ctx context.Context, output io.Writer, openBrowser func(string) erro
 	if err != nil {
 		return fmt.Errorf("find user configuration directory: %w", err)
 	}
-	databasePath := filepath.Join(configDir, "ThesisFlow", "thesisflow.sqlite")
-	return start(ctx, output, localPort, databasePath, openBrowser)
+	selector := workspaceselect.New(filepath.Join(configDir, "ThesisFlow"))
+	databasePath, selected, err := selector.Resolve()
+	if err != nil {
+		return fmt.Errorf("restore selection must be fixed before launching: %w", err)
+	}
+	return startWithPreflight(ctx, output, localPort, databasePath, openBrowser, selected, selector)
 }
 
 func main() {
