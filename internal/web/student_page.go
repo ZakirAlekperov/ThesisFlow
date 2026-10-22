@@ -97,7 +97,7 @@ var groupStudentsTemplate = template.Must(template.New("group-students").Parse(`
     <p><a href="/groups/{{.Group.ID}}/report">Печатная ведомость группы</a></p>
     <p><a href="/groups/{{.Group.ID}}/matrix">Таблица сдачи документов группы</a></p>
     <p><a href="/groups/{{.Group.ID}}/select-profile">Назначить профиль ВКР</a> ·
-    <a href="/groups/{{.Group.ID}}/deadlines">Изменить групповые сроки</a></p>
+    <a href="/groups/{{.Group.ID}}/deadlines">Изменить групповые сроки</a> · <a href="/groups/{{.Group.ID}}/templates">Назначить файлы-шаблоны</a></p>
     <a href="/groups/{{.Group.ID}}/completeness">Комплектность документов</a>
     <section class="panel" aria-labelledby="students-heading">
       <h2 id="students-heading">Студенты</h2>
