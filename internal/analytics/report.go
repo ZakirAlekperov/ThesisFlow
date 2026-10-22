@@ -155,7 +155,7 @@ func (r *Repository) Build(ctx context.Context, f Filter, now time.Time) (Report
  LEFT JOIN material_status m ON m.student_id=s.id AND m.requirement_id=req.id
  LEFT JOIN accepted_files af ON af.student_id=s.id AND af.requirement_id=req.id
  WHERE g.archived_at IS NULL AND (?=0 OR g.id=?)
- ORDER BY g.name,g.id,s.full_name,s.id,req.title_key,req.id`
+ ORDER BY g.name,g.id,s.full_name,s.id,req.sort_order,req.title_key,req.id`
 	rows, err := r.DB.QueryContext(ctx, query, f.GroupID, f.GroupID)
 	if err != nil {
 		return Report{}, fmt.Errorf("query analytics: %w", err)
