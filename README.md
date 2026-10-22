@@ -1,106 +1,117 @@
 # ThesisFlow
 
-A lightweight, local graduation-thesis document tracker for educators.
+Локальный помощник преподавателя для управления материалами выпускных
+квалификационных работ. / A local graduation-thesis document manager for educators.
 
-Лёгкий локальный помощник преподавателя для учёта материалов выпускных квалификационных работ.
+**Status / Статус: 0.3.0-dev — версия в разработке, не стабильный релиз.**
 
-> **Development status / Состояние разработки:** early prototype (0.1.02). The first HTTP page opens in the default browser. SQLite initialization and group creation is available through Go, and the homepage displays saved groups from SQLite. The homepage can create groups; student records can be created and viewed directly from each group's browser page. Excel import and group-wide requirement setup are available. File versioning and document acceptance are not implemented yet.
->
-> Ранний прототип (0.1.02). Первая HTTP-страница автоматически открывается в браузере по умолчанию. SQLite инициализируется автоматически, а группы можно создавать через Go API, а главная страница показывает группы из SQLite. Форма создания групп работает; студентов можно добавлять и просматривать на странице соответствующей группы в браузере. Импорт Excel и создание общих требований к документам доступны. Версии файлов и приёмка материалов ещё не реализованы.
+## Возможности (RU)
+
+ThesisFlow запускается как одно локальное приложение на Go. Интерфейс
+открывается в браузере; Docker, React, npm, интернет и внешний SQL-сервер
+не нужны. Данные сохраняются в SQLite на компьютере преподавателя.
+
+- Учебные группы и студенты с уникальным учебным ID, редактирование и архив.
+- Импорт реального Excel (.xlsx) с выбором листа, предпросмотром и явным
+  подтверждением до внесения записей.
+- Общие требования группы к документам и их сроки сдачи. В 0.3.0 можно
+  редактировать название и срок; если по требованию уже есть принятый файл,
+  изменение названия блокируется ради целостности файлов.
+- Для одной ВКР: тема с реквизитами приказа, все требуемые документы,
+  загрузка одиночных версий или до десяти файлов за одну отправку,
+  просмотр истории, принятие и возврат на доработку.
+- Раздельное хранение неизменяемых версий и человекочитаемых папок с
+  принятыми файлами: группа / студент / нормализованное имя документа.
+- Общая ведомость по группе, фильтры статусов и просрочек, печатный отчёт,
+  панель готовности и поиск студентов.
+- Раздел скачиваемых шаблонов и тестовых DOCX/XLSX.
+- Резервная копия ZIP через настройки и проверенное восстановление в
+  **отдельную** папку, не заменяющее активные данные.
+- Собственные светлая и тёмная темы, вариант C: компактная горизонтальная
+  навигация, контрастные формы и таблицы.
+
+### Установка и запуск
+
+Для запуска из исходников нужен Go 1.23+.
+
+```bash
+go run ./cmd/thesisflow
+```
+
+Приложение печатает адрес вида `http://127.0.0.1:<port>/` и пытается
+открыть его автоматически. Сервер слушает только 127.0.0.1; с другого
+компьютера он недоступен. Завершение — Ctrl+C.
+
+SQLite: `<user config dir>/ThesisFlow/thesisflow.sqlite`.
+Файлы: `<user config dir>/ThesisFlow/storage/`.
+Папка изолированных восстановлений: `<user config dir>/ThesisFlow/restores/`.
+
+Для просмотра версии без запуска БД и браузера:
+
+```bash
+go run ./cmd/thesisflow version
+```
+
+### Проверка
+
+```bash
+gofmt -l .
+go test ./...
+go vet ./...
+go test -race ./...
+```
+
+Сборки Windows AMD64, macOS ARM64/AMD64 и Linux AMD64, а также пакеты
+для отдельных ОС формируются через GitHub Actions. Не все сборки подписаны
+или нотариально заверены. Перед работой с реальными ВКР проверьте
+экспорт резервных копий, восстановление и ручной сценарий с тестовыми файлами.
+
+### Документация
+
+- [Возможности и приёмка 0.2.0](docs/release-0.2.0.md)
+- [Оформление варианта C](docs/ui-concept-c.md)
+- [Редактирование требований](docs/requirement-edit-0.3.md)
+- [Контроль обновления статусов](docs/status-freshness-0.3.md)
+- [Аудит кода и ограничения](docs/code-review-0.3.md)
+- [Миграции SQLite](docs/migrations.md)
+- [Целостность файлов](docs/integrity.md)
+- [Резервное копирование](docs/backup-browser.md)
+- [Восстановление](docs/backup-restore-browser.md)
+- [Сборки для ОС](docs/platform-packaging.md)
 
 ## English
 
-### Run locally
+ThesisFlow is a single local Go application that opens a server-rendered
+browser UI and keeps student/thesis metadata in SQLite. No Docker, cloud,
+React, Node.js or external database is required.
 
-Go 1.23 or newer is required to run from source.
+Core capabilities: groups, student records and XLSX import with worksheet
+preview/confirmation; configurable shared document requirements and due
+dates; immutable uploaded revisions and an approved readable-folder
+projection; thesis topic/order metadata; approval/revision history; grouped
+status matrix, overdue filters, progress dashboard, printable reports,
+search, bundled test templates, backups and isolated verified restores.
 
-```bash
-go run ./cmd/thesisflow
-```
+The 0.3.0 development line adds concept C navigation and theme consistency,
+requirement title/date editing, and direct status-freshness regression tests.
+A title cannot be changed after a file for that requirement has been
+approved until safe accepted-file relocation is implemented.
 
-The program prints a local URL such as **http://127.0.0.1:37893/** (the port changes at each startup) and attempts to open it automatically in your default browser. If your graphical desktop or URL opener is unavailable, open the printed URL manually. Stop the local server with **Ctrl+C**. The server listens only on the loopback interface; other computers cannot connect. On startup, SQLite is created or reopened at `<user config dir>/ThesisFlow/thesisflow.sqlite`. No Docker or external database server is required. The homepage displays existing academic groups, or an empty-state message if none have been added. You can create groups using the form on the homepage. New groups appear immediately after the form redirects to the list. Click a group name to view its students at `/groups/{id}`. The group page also lets you add students by full name and unique educational ID.
+Run with `go run ./cmd/thesisflow` (Go 1.23+). The local URL is printed
+on startup and opens in your browser if possible. The HTTP server binds
+only to loopback. SQLite and files live below the user's configuration
+directory in the ThesisFlow folder. Stop with Ctrl+C.
 
-### Test
+Verify with `go test ./...`, `go vet ./...`, `gofmt -l .`, and
+`go test -race ./...` on a supported host. Use real XLSX/DOCX files
+for manual acceptance. Check the above documents for current limitations.
 
-```bash
-go test ./...
-go vet ./...
-```
+**Not yet delivered:** a student-facing portal, multi-user permissions,
+cloud synchronization, full DOCX/ГОСТ compliance analysis, guaranteed
+atomic batches across many filesystem files, or automatic replacement
+of the current workspace after restoring a backup. ZIP backups are not
+encrypted. This is development software, not a finalized release.
 
-See [docs/testing.md](docs/testing.md), [docs/groups.md](docs/groups.md), [docs/students.md](docs/students.md) [docs/requirements.md](docs/requirements.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+## License
 
-## Русский
-
-### Локальный запуск
-
-Для запуска из исходников требуется Go 1.23 или новее.
-
-```bash
-go run ./cmd/thesisflow
-```
-
-Программа выводит локальный адрес, например **http://127.0.0.1:37893/** (порт меняется при каждом запуске), и пытается автоматически открыть его в браузере по умолчанию. Если графическая среда или средство открытия ссылок недоступно, откройте адрес из консоли вручную. Для остановки сервера нажмите **Ctrl+C**. Сервер слушает только loopback-интерфейс; подключиться с другого компьютера нельзя. При запуске SQLite создаётся или открывается по пути `<каталог конфигурации пользователя>/ThesisFlow/thesisflow.sqlite`. Docker и отдельный сервер БД не требуются. На главной странице отображаются сохранённые группы или сообщение об их отсутствии. Группы можно создавать прямо на главной странице: после отправки формы список обновится. Нажмите название группы для просмотра её студентов. На странице группы есть форма добавления студента с ФИО и уникальным учебным ID.
-
-### Тестирование
-
-```bash
-go test ./...
-go vet ./...
-```
-
-Правила разработки описаны в [docs/testing.md](docs/testing.md) и [CONTRIBUTING.md](CONTRIBUTING.md). Контракты групп — в [docs/groups.md](docs/groups.md), студентов — в [docs/students.md](docs/students.md), требований — в [docs/requirements.md](docs/requirements.md).
-
-## License / Лицензия
-
-MIT. See [LICENSE](LICENSE).
-
-## Group print report / Печатная ведомость группы
-
-EN: Once a group has requirements and documents, open its page and select
-**Печатная ведомость группы**. The read-only report shows students, required,
-accepted, overdue, and completion percent. Use browser Print / Save as PDF.
-
-RU: На странице учебной группы нажмите **«Печатная ведомость группы»**.
-Откроется отчёт с числом студентов, требуемых, принятых, просроченных
-документов и процентом готовности. Для печати или PDF используйте печать
-браузера. Отчёт не изменяет данные SQLite.
-
-## Portable builds / Переносимые сборки
-
-EN: GitHub Actions **Portable builds** creates downloadable binaries for
-macOS ARM64/AMD64, Windows AMD64 and Linux AMD64. No Go installation is
-needed to run a downloaded binary. It contains the local browser app and
-backup commands. Build artifacts are attached to the workflow run.
-
-RU: GitHub Actions **Portable builds** создаёт архивы приложения для
-macOS ARM64/AMD64, Windows AMD64 и Linux AMD64. Для запуска готового файла
-устанавливать Go не требуется. В архивах есть приложение и команды
-резервного копирования. Сборки доступны как артефакты запуска Actions.
-
-Backup instructions / Инструкция по резервному копированию:
-[docs/backup.md](docs/backup.md).
-
-## 0.1.10 candidate / Кандидат в выпуск 0.1.10
-
-**English:** this branch is a release candidate, not a published stable
-release. Run `thesisflow version` to inspect the build. For the detailed
-feature inventory, limitations, manual QA checklist and the review order
-of stacked PRs, see [docs/release-0.1.10.md](docs/release-0.1.10.md).
-
-**Русский:** эта ветка — кандидат в выпуск, а не опубликованная стабильная
-версия. Команда `thesisflow version` показывает номер сборки. Реализованные
-возможности, ограничения, порядок проверки PR и план ручных испытаний описаны
-в [docs/release-0.1.10.md](docs/release-0.1.10.md).
-
-## Downloadable templates / Скачиваемые шаблоны
-
-EN: The local application's **Шаблоны** tab at `/templates` offers real
-downloadable XLSX student rosters (20 fictional students plus a blank roster),
-DOCX chapter revisions, and a manual testing guide. **No database records are
-created** until a user imports/uploads a file through the normal interface.
-See [docs/templates.md](docs/templates.md).
-
-RU: В приложении появился отдельный раздел **«Шаблоны»** (`/templates`):
-Excel-список на 20 вымышленных студентов, пустой шаблон и несколько настоящих
-Word-документов для проверки версий и статусов ВКР. Скачивание **не создаёт
-данные в SQLite**. Инструкция — [docs/templates.md](docs/templates.md).
+MIT — [LICENSE](LICENSE).
