@@ -224,7 +224,7 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	}
 	if deps.Backup != nil || deps.Restore != nil {
 		mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
-			renderSettings(w, r, token)
+			renderSettings(w, r, token, deps.Selection != nil)
 		})
 	}
 	if deps.Backup != nil {
