@@ -7,7 +7,6 @@ package review
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -45,6 +44,9 @@ type Service struct {
 	DB       *sql.DB
 	Versions *fileversions.Store
 	Clock    func() time.Time
+	// interruptApproval is a deterministic crash-injection hook for package tests.
+	// RU: Используется только в тестах аварийных точек приёмки.
+	interruptApproval func(stage string) error
 }
 
 // NewService uses an existing database and version store.
@@ -68,7 +70,8 @@ func (s *Service) Init(ctx context.Context) error {
 	if _, err := s.DB.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("initialize accepted files index: %w", err)
 	}
-	return s.initFeedback(ctx)
+	if err := s.initFeedback(ctx); err != nil { return err }
+	return s.initJournal(ctx)
 }
 
 // safeName removes characters forbidden by major desktop filesystems while
@@ -172,144 +175,133 @@ func (s *Service) findProjection(ctx context.Context, wanted string, studentID, 
 // Старая принятая копия защищена до подготовки новой; при ошибке SQLite
 // выполняется возврат старого файла. История версий остаётся нетронутой.
 func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionID int64) (Accepted, error) {
-	if err := ctx.Err(); err != nil {
-		return Accepted{}, err
+	approvalMu.Lock()
+	defer approvalMu.Unlock()
+	if err := ctx.Err(); err != nil {return Accepted{},err}
+	info,err:=s.versionInfo(ctx,studentID,requirementID,versionID)
+	if err!=nil{return Accepted{},err}
+	data,err:=s.Versions.Read(ctx,versionID)
+	if err!=nil{return Accepted{},fmt.Errorf("read approved source: %w",err)}
+	if fingerprint(data)!=info.sha {
+		return Accepted{},errors.New("document version checksum mismatch")
 	}
-	info, err := s.versionInfo(ctx, studentID, requirementID, versionID)
-	if err != nil {
-		return Accepted{}, err
+	relative,err:=s.findProjection(ctx,projectionPath(info,filepath.Ext(info.relative)),studentID,requirementID)
+	if err!=nil{return Accepted{},err}
+	relative,err=storagepath.Normalize(relative)
+	if err!=nil{return Accepted{},fmt.Errorf("invalid projected path: %w",err)}
+	var previousPath string
+	var previousVersion int64
+	err=s.DB.QueryRowContext(ctx,`SELECT relative_path,version_id FROM accepted_files
+	WHERE student_id=? AND requirement_id=?`,studentID,requirementID).
+	Scan(&previousPath,&previousVersion)
+	if err!=nil&&!errors.Is(err,sql.ErrNoRows){return Accepted{},fmt.Errorf("find previous approval: %w",err)}
+	if errors.Is(err,sql.ErrNoRows){previousPath="";previousVersion=0}
+	if previousPath!=""{
+		previousPath,err=storagepath.Normalize(previousPath)
+		if err!=nil{return Accepted{},fmt.Errorf("invalid prior approval path: %w",err)}
 	}
-	data, err := s.Versions.Read(ctx, versionID)
-	if err != nil {
-		return Accepted{}, fmt.Errorf("read approved source: %w", err)
+	var pending int
+	if err:=s.DB.QueryRowContext(ctx,`SELECT COUNT(*) FROM approval_operations
+	WHERE student_id=? AND requirement_id=?`,studentID,requirementID).Scan(&pending);err!=nil{
+		return Accepted{},err
 	}
-	checksum := sha256.Sum256(data)
-	if hex.EncodeToString(checksum[:]) != info.sha {
-		return Accepted{}, errors.New("document version checksum mismatch")
-	}
-	extension := filepath.Ext(info.relative)
-	relative, err := s.findProjection(ctx, projectionPath(info, extension), studentID, requirementID)
-	if err != nil {
-		return Accepted{}, err
-	}
+	if pending!=0{return Accepted{},ErrPendingApproval}
 
-	var previous string
-	err = s.DB.QueryRowContext(ctx, `SELECT relative_path FROM accepted_files
-		WHERE student_id=? AND requirement_id=?`, studentID, requirementID).Scan(&previous)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return Accepted{}, fmt.Errorf("find previous approval: %w", err)
+	// Verify the current public file against its immutable recorded version
+	// before any replacement. Do not silently destroy user-edited content.
+	// RU: Не заменяем правленый вручную принятый документ без предупреждения.
+	previousHash:=""
+	if previousVersion>0{
+		oldBytes,err:=s.Versions.Read(ctx,previousVersion)
+		if err!=nil{return Accepted{},fmt.Errorf("prior accepted source is invalid: %w",err)}
+		previousHash=fingerprint(oldBytes)
+		oldTarget,err:=secureTarget(s.Versions.Root,previousPath,false)
+		if err!=nil{return Accepted{},fmt.Errorf("prior approved file is unavailable: %w",err)}
+		foundHash,present,err:=existingHash(oldTarget)
+		if err!=nil{return Accepted{},err}
+		if !present||foundHash!=previousHash{return Accepted{},ErrRecoveryConflict}
 	}
-	// Legacy Windows versions stored '\\' separators in SQLite. Normalize
-	// them for comparison but do not rewrite or delete old user data.
-	// RU: Читаем исторические пути Windows как переносимые.
-	if previous != "" {
-		previous, err = storagepath.Normalize(previous)
-		if err != nil {
-			return Accepted{}, fmt.Errorf("unsafe previously accepted path: %w", err)
-		}
+	if previousVersion==versionID&&previousPath==relative{
+		return Accepted{StudentID:studentID,RequirementID:requirementID,
+			VersionID:versionID,RelativePath:relative},nil
 	}
-	// An identical accepted version is idempotent if the visible file exists.
-	// RU: Повторная приёмка той же версии не изменяет файл и историю.
-	var currentVersionID int64
-	_ = s.DB.QueryRowContext(ctx, `SELECT version_id FROM accepted_files
-		WHERE student_id=? AND requirement_id=?`, studentID, requirementID).Scan(&currentVersionID)
-	if currentVersionID == versionID && previous == relative {
-		if _, err := os.Stat(filepath.Join(s.Versions.Root, filepath.FromSlash(relative))); err == nil {
-			return Accepted{StudentID: studentID, RequirementID: requirementID, VersionID: versionID, RelativePath: relative}, nil
-		}
+	target,err:=secureTarget(s.Versions.Root,relative,true)
+	if err!=nil{return Accepted{},fmt.Errorf("unsafe approved target: %w",err)}
+	if previousPath!=relative {
+		if _,present,err:=existingHash(target);err!=nil{return Accepted{},err
+		}else if present{return Accepted{},ErrRecoveryConflict}
 	}
-	target := filepath.Join(s.Versions.Root, filepath.FromSlash(relative))
-	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
-		return Accepted{}, fmt.Errorf("create accepted folder: %w", err)
-	}
-	random := make([]byte, 12)
-	if _, err := rand.Read(random); err != nil {
-		return Accepted{}, fmt.Errorf("prepare approval file: %w", err)
-	}
-	token := hex.EncodeToString(random)
-	temporary := target + ".tmp-" + token
-	handle, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		return Accepted{}, fmt.Errorf("create approval temporary file: %w", err)
-	}
+	random:=make([]byte,12)
+	if _,err:=rand.Read(random);err!=nil{return Accepted{},err}
+	token:=hex.EncodeToString(random)
+	temporary:=target+".tmp-"+token
+	file,err:=os.OpenFile(temporary,os.O_WRONLY|os.O_CREATE|os.O_EXCL,0600)
+	if err!=nil{return Accepted{},fmt.Errorf("create temporary approval: %w",err)}
 	defer os.Remove(temporary)
-	if _, err := handle.Write(data); err != nil {
-		handle.Close()
-		return Accepted{}, fmt.Errorf("write approval file: %w", err)
-	}
-	if err := handle.Sync(); err != nil {
-		handle.Close()
-		return Accepted{}, fmt.Errorf("sync approval file: %w", err)
-	}
-	if err := handle.Close(); err != nil {
-		return Accepted{}, fmt.Errorf("close approval file: %w", err)
-	}
+	if _,err=file.Write(data);err!=nil{file.Close();return Accepted{},err}
+	if err=file.Sync();err!=nil{file.Close();return Accepted{},err}
+	if err=file.Close();err!=nil{return Accepted{},err}
 
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return Accepted{}, fmt.Errorf("begin approval transaction: %w", err)
+	op:=approvalIntent{Token:token,StudentID:studentID,RequirementID:requirementID,
+		VersionID:versionID,PreviousVersionID:previousVersion,
+		PreviousPath:previousPath,TargetPath:relative,
+		CreatedAt:approvalTimestamp(s.Clock)}
+	// The durable intent is committed independently BEFORE any file rename.
+	// RU: При сбое после этого этапа новая попытка запуска знает, что делать.
+	if err:=s.insertIntent(ctx,op);err!=nil{return Accepted{},err}
+	interrupt:=func(stage string) error {
+		if s.interruptApproval!=nil{return s.interruptApproval(stage)}
+		return nil
 	}
+	if err:=interrupt("after_intent");err!=nil{return Accepted{},err}
+	backup:=target+".backup-"+token
+	if previousPath==relative&&previousVersion>0{
+		if err:=os.Rename(target,backup);err!=nil{
+			return Accepted{},fmt.Errorf("%w: protect previous approved bytes: %v",ErrPendingApproval,err)
+		}
+		if err:=interrupt("after_old_renamed");err!=nil{return Accepted{},err}
+	}
+	if err:=os.Rename(temporary,target);err!=nil{
+		return Accepted{},fmt.Errorf("%w: publish approved bytes: %v",ErrPendingApproval,err)
+	}
+	if err:=interrupt("after_publish");err!=nil{return Accepted{},err}
+	tx,err:=s.DB.BeginTx(ctx,nil)
+	if err!=nil{return Accepted{},fmt.Errorf("%w: begin SQLite commit: %v",ErrPendingApproval,err)}
 	defer tx.Rollback()
-	backup := ""
-	if _, err := os.Stat(target); err == nil {
-		// Never overwrite an untracked user file or another requirement's file.
-		// RU: Не заменяем посторонний файл, не принадлежащий этому требованию.
-		if previous != relative {
-			return Accepted{}, errors.New("accepted path already contains a different file")
-		}
-		backup = target + ".backup-" + token
-		if err := os.Rename(target, backup); err != nil {
-			return Accepted{}, fmt.Errorf("protect previous accepted file: %w", err)
-		}
-	} else if !os.IsNotExist(err) {
-		return Accepted{}, fmt.Errorf("check approval target: %w", err)
+	now:=s.Clock().UTC().Format(time.RFC3339Nano)
+	_,err=tx.ExecContext(ctx,`INSERT INTO accepted_files(
+	student_id,requirement_id,version_id,relative_path,accepted_at)
+	VALUES(?,?,?,?,?) ON CONFLICT(student_id,requirement_id) DO UPDATE SET
+	version_id=excluded.version_id,relative_path=excluded.relative_path,accepted_at=excluded.accepted_at`,
+	studentID,requirementID,versionID,relative,now)
+	if err!=nil{return Accepted{},fmt.Errorf("%w: save approved metadata: %v",ErrPendingApproval,err)}
+	if _,err:=tx.ExecContext(ctx,"UPDATE file_versions SET accepted=1 WHERE id=?",versionID);err!=nil{
+		return Accepted{},fmt.Errorf("%w: update approved revision: %v",ErrPendingApproval,err)
 	}
-	if err := os.Rename(temporary, target); err != nil {
-		if backup != "" {
-			_ = os.Rename(backup, target)
-		}
-		return Accepted{}, fmt.Errorf("replace approved file: %w", err)
+	if _,err:=tx.ExecContext(ctx,`INSERT INTO material_status(
+	student_id,requirement_id,status,changed_at) VALUES(?,?,?,?)
+	ON CONFLICT(student_id,requirement_id) DO UPDATE SET
+	status=excluded.status,changed_at=excluded.changed_at`,
+	studentID,requirementID,string(materials.Accepted),now);err!=nil{
+		return Accepted{},fmt.Errorf("%w: update review status: %v",ErrPendingApproval,err)
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = os.Remove(target)
-			if backup != "" {
-				_ = os.Rename(backup, target)
-			}
-		}
-	}()
-	now := s.Clock().UTC().Format(time.RFC3339Nano)
-	_, err = tx.ExecContext(ctx, `INSERT INTO accepted_files(student_id,requirement_id,version_id,relative_path,accepted_at)
-		VALUES(?,?,?,?,?) ON CONFLICT(student_id,requirement_id) DO UPDATE SET
-		version_id=excluded.version_id,relative_path=excluded.relative_path,accepted_at=excluded.accepted_at`,
-		studentID, requirementID, versionID, relative, now)
-	if err != nil {
-		return Accepted{}, fmt.Errorf("save accepted file: %w", err)
+	if _,err:=tx.ExecContext(ctx,`INSERT INTO material_events(
+	student_id,requirement_id,status,occurred_at) VALUES(?,?,?,?)`,
+	studentID,requirementID,string(materials.Accepted),now);err!=nil{
+		return Accepted{},fmt.Errorf("%w: record approval history: %v",ErrPendingApproval,err)
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE file_versions SET accepted=1 WHERE id=?", versionID); err != nil {
-		return Accepted{}, fmt.Errorf("mark accepted version: %w", err)
+	if err:=tx.Commit();err!=nil{
+		return Accepted{},fmt.Errorf("%w: commit approval: %v",ErrPendingApproval,err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO material_status(student_id,requirement_id,status,changed_at)
-		VALUES(?,?,?,?) ON CONFLICT(student_id,requirement_id) DO UPDATE SET
-		status=excluded.status,changed_at=excluded.changed_at`, studentID, requirementID, string(materials.Accepted), now); err != nil {
-		return Accepted{}, fmt.Errorf("update accepted status: %w", err)
+	if err:=interrupt("after_commit");err!=nil{return Accepted{},err}
+	// Use the same idempotent cleanup as next-start recovery. This may
+	// remove ONLY the known old backup and previously accepted projection.
+	// RU: После commit удаляем только проверенную старую копию.
+	if err:=s.resolveIntent(ctx,op);err!=nil{
+		return Accepted{},fmt.Errorf("%w: finalize accepted projection: %v",ErrPendingApproval,err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO material_events(student_id,requirement_id,status,occurred_at)
-		VALUES(?,?,?,?)`, studentID, requirementID, string(materials.Accepted), now); err != nil {
-		return Accepted{}, fmt.Errorf("record accepted event: %w", err)
-	}
-	if err := tx.Commit(); err != nil {
-		return Accepted{}, fmt.Errorf("commit approval: %w", err)
-	}
-	committed = true
-	if backup != "" {
-		_ = os.Remove(backup)
-	}
-	if previous != "" && previous != relative {
-		_ = os.Remove(filepath.Join(s.Versions.Root, filepath.FromSlash(previous)))
-	}
-	return Accepted{StudentID: studentID, RequirementID: requirementID, VersionID: versionID, RelativePath: relative}, nil
+	return Accepted{StudentID:studentID,RequirementID:requirementID,
+		VersionID:versionID,RelativePath:relative},nil
 }
 
 // Reject marks a submitted version for revision. Old accepted files and all
