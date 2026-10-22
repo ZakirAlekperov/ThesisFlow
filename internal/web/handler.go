@@ -77,6 +77,7 @@ var homePageTemplate = template.Must(template.New("home").Parse(`<!doctype html>
       <a href="/" aria-current="page">Учебные группы</a>
       <a href="/templates">Шаблоны</a>
       <a href="/dashboard">Панель преподавателя</a>
+      <a href="/reports">Аналитика и отчёты</a>
       <a href="/search">Поиск студентов</a>
       <a href="/manage">Управление и архив</a>
     </nav>
