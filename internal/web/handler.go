@@ -148,6 +148,7 @@ type Dependencies struct {
 	Backup       BackupExporter
 	Restore      BackupRestorer
 	Matrix       MatrixProvider
+	ReviewQueue  ReviewQueueReader
 }
 
 // NewHandler preserves the minimal constructor used by existing tests.
@@ -174,6 +175,14 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 	var backupGate sync.RWMutex
 
 	mux := http.NewServeMux()
+	if deps.ReviewQueue != nil {
+		mux.HandleFunc("GET /reviews", func(w http.ResponseWriter, r *http.Request) {
+			renderReviewQueue(w, r, store, deps.ReviewQueue)
+		})
+		mux.HandleFunc("GET /groups/{id}/completeness", func(w http.ResponseWriter, r *http.Request) {
+			renderGroupCompleteness(w, r, store, deps.ReviewQueue)
+		})
+	}
 	if deps.Matrix != nil {
 		mux.HandleFunc("GET /groups/{id}/matrix", func(w http.ResponseWriter, r *http.Request) {
 			renderGroupMatrix(w, r, store, deps.Matrix)
