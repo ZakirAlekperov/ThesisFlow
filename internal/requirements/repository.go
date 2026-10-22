@@ -76,6 +76,15 @@ func (r *Repository) Init(ctx context.Context) error {
 			return fmt.Errorf("initialize requirement indexes: %w", err)
 		}
 	}
+	// Older unit-test workspaces initialize requirements directly without
+	// invoking the app migration. Keep this optional override table available.
+	// RU: Сроки студентов доступны и в автономном тестовом хранилище.
+	if _, err := r.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS due_overrides (
+		student_id INTEGER NOT NULL REFERENCES students(id),
+		requirement_id INTEGER NOT NULL REFERENCES requirements(id),
+		kind TEXT NOT NULL CHECK(kind IN ('date','none')),
+		due_date TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY(student_id,requirement_id))`);err!=nil{return fmt.Errorf("initialize due overrides: %w",err)}
 	return nil
 }
 
@@ -196,9 +205,11 @@ func (r *Repository) ListForStudent(ctx context.Context, groupID, studentID int6
 	if exists == 0 {
 		return nil, ErrInvalidScope
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT id,group_id,student_id,title,due_date FROM requirements
-		WHERE group_id=? AND (student_id IS NULL OR student_id=?)
-		ORDER BY title_key,id`, groupID, studentID)
+	rows, err := r.db.QueryContext(ctx, `SELECT r.id,r.group_id,r.student_id,r.title,
+		CASE WHEN o.kind='none' THEN '' WHEN o.kind='date' THEN o.due_date ELSE r.due_date END
+		FROM requirements r LEFT JOIN due_overrides o ON o.student_id=? AND o.requirement_id=r.id
+		WHERE r.group_id=? AND (r.student_id IS NULL OR r.student_id=?)
+		ORDER BY r.title_key,r.id`, studentID, groupID, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("list student requirements: %w", err)
 	}
