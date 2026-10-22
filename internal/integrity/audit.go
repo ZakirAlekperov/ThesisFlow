@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storagepath"
 )
 
 const maxAuditedFileSize = 20 << 20
@@ -40,11 +42,19 @@ type Report struct {
 // component, not only the final filename. It never opens outside root.
 // RU: safeRegularPath запрещает обход каталогов и символические ссылки.
 func safeRegularPath(root, relative string) (string, error) {
-	if !filepath.IsLocal(relative) || strings.ContainsAny(relative, "\\:") {
-		return "", errors.New("unsafe relative path")
+	normalized, err := storagepath.Normalize(relative)
+	if err != nil {
+		return "", err
+	}
+	rootInfo, err := os.Lstat(root)
+	if err != nil {
+		return "", err
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
+		return "", errors.New("unsafe storage root")
 	}
 	current := root
-	for _, part := range strings.Split(filepath.Clean(relative), string(filepath.Separator)) {
+	for _, part := range strings.Split(normalized, "/") {
 		current = filepath.Join(current, part)
 		info, err := os.Lstat(current)
 		if err != nil {
@@ -95,7 +105,7 @@ func Check(ctx context.Context, db *sql.DB, root string) (Report, error) {
 		}
 		// Metadata or paths may be corrupted; never follow potentially
 		// malicious entries even on a local single-user installation.
-		if !filepath.IsLocal(relative) || strings.ContainsAny(relative, "\\:") {
+		if _, pathErr := storagepath.Normalize(relative); pathErr != nil {
 			result.Unsafe++
 			record("unsafe path")
 			continue

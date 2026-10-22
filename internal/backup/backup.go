@@ -19,6 +19,10 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
 )
 
 const (
@@ -213,7 +217,21 @@ func safeEntry(name string) bool {
 	if path.Clean(name) != name || strings.HasPrefix(name, "../") {
 		return false
 	}
-	return name == "manifest.json" || name == "thesisflow.sqlite" || strings.HasPrefix(name, "storage/")
+	if !(name == "manifest.json" || name == "thesisflow.sqlite" || strings.HasPrefix(name, "storage/")) {
+		return false
+	}
+	for _, component := range strings.Split(name, "/") {
+		if component == "" || strings.HasSuffix(component, ".") || strings.HasSuffix(component, " ") {
+			return false
+		}
+		reserved := strings.ToUpper(strings.SplitN(component, ".", 2)[0])
+		if reserved == "CON" || reserved == "PRN" || reserved == "AUX" || reserved == "NUL" ||
+			(len(reserved) == 4 && (strings.HasPrefix(reserved, "COM") || strings.HasPrefix(reserved, "LPT")) &&
+				reserved[3] >= '1' && reserved[3] <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // Restore verifies file hashes and safely restores a backup into a completely
@@ -253,6 +271,7 @@ func Restore(archivePath, destination string) error {
 	defer os.RemoveAll(staging)
 
 	found := make(map[string]string)
+	casefold := make(map[string]struct{})
 	var expected manifest
 	manifestFound := false
 	var total int64
@@ -261,6 +280,15 @@ func Restore(archivePath, destination string) error {
 		if !safeEntry(name) || entry.FileInfo().Mode()&os.ModeSymlink != 0 || !entry.FileInfo().Mode().IsRegular() {
 			return fmt.Errorf("%w: invalid entry %q", ErrUnsafeArchive, name)
 		}
+		// Windows and many macOS volumes are case-insensitive. Reject
+		// archives that would overwrite different files on those systems.
+		// RU: Архив не должен содержать коллизии имён без учёта регистра.
+		key := strings.ToLower(name)
+		if _, duplicate := casefold[key]; duplicate {
+			return fmt.Errorf("%w: case-insensitive path collision", ErrUnsafeArchive)
+		}
+		casefold[key] = struct{}{}
+
 		if entry.UncompressedSize64 > uint64(maxEntryBytes) {
 			return ErrTooLarge
 		}
@@ -317,6 +345,9 @@ func Restore(archivePath, destination string) error {
 			return fmt.Errorf("%w: hash mismatch %s", ErrUnsafeArchive, name)
 		}
 	}
+	if err := checkRestoredWorkspace(staging); err != nil {
+		return fmt.Errorf("%w: %v", ErrUnsafeArchive, err)
+	}
 	if err := checkNewPath(destination); err != nil {
 		return err
 	}
@@ -324,4 +355,39 @@ func Restore(archivePath, destination string) error {
 		return fmt.Errorf("complete restore: %w", err)
 	}
 	return nil
+}
+
+// checkRestoredWorkspace validates the staged SQLite snapshot and document
+// references without opening the user's active database.
+// RU: Проверка связей и файлов до публикации восстановленного каталога.
+func checkRestoredWorkspace(destination string) error {
+	ctx := context.Background()
+	db, err := sqlite.Open(ctx, filepath.Join(destination, "thesisflow.sqlite"))
+	if err != nil {
+		return fmt.Errorf("open staged database: %w", err)
+	}
+	defer db.Close()
+	report, err := workspace.Check(ctx, db, filepath.Join(destination, "storage"))
+	if err != nil {
+		return err
+	}
+	if report.SchemaVersion > migrate.CurrentVersion {
+		return fmt.Errorf("unsupported SQLite schema %d", report.SchemaVersion)
+	}
+	if !report.Healthy() {
+		return fmt.Errorf("staged workspace has %d integrity issues", len(report.Issues))
+	}
+	return nil
+}
+
+// Verify validates a ZIP in an isolated temporary folder, then removes it.
+// It never overwrites the active workspace.
+// RU: Проверяем архив без изменения действующих документов.
+func Verify(archivePath string) error {
+	temp, err := os.MkdirTemp("", "thesisflow-verify-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(temp)
+	return Restore(archivePath, filepath.Join(temp, "verified"))
 }

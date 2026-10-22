@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storagepath"
 )
 
 // ErrInvalidVersion means that a version does not belong to the requested
@@ -142,7 +144,7 @@ func (s *Service) versionInfo(ctx context.Context, studentID, requirementID, ver
 func projectionPath(info versionInfo, versionExt string) string {
 	groupFolder := fmt.Sprintf("%s [%d]", safeName(info.groupName), info.groupID)
 	studentFolder := fmt.Sprintf("%s [%s-%d]", safeName(info.name), safeName(info.educationalID), info.studentID)
-	return filepath.Join(groupFolder, studentFolder, safeName(info.title)+versionExt)
+	return path.Join(groupFolder, studentFolder, safeName(info.title)+versionExt)
 }
 
 // findProjection resolves collisions with previously approved documents.
@@ -197,17 +199,26 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return Accepted{}, fmt.Errorf("find previous approval: %w", err)
 	}
+	// Legacy Windows versions stored '\\' separators in SQLite. Normalize
+	// them for comparison but do not rewrite or delete old user data.
+	// RU: Читаем исторические пути Windows как переносимые.
+	if previous != "" {
+		previous, err = storagepath.Normalize(previous)
+		if err != nil {
+			return Accepted{}, fmt.Errorf("unsafe previously accepted path: %w", err)
+		}
+	}
 	// An identical accepted version is idempotent if the visible file exists.
 	// RU: Повторная приёмка той же версии не изменяет файл и историю.
 	var currentVersionID int64
 	_ = s.DB.QueryRowContext(ctx, `SELECT version_id FROM accepted_files
 		WHERE student_id=? AND requirement_id=?`, studentID, requirementID).Scan(&currentVersionID)
 	if currentVersionID == versionID && previous == relative {
-		if _, err := os.Stat(filepath.Join(s.Versions.Root, relative)); err == nil {
+		if _, err := os.Stat(filepath.Join(s.Versions.Root, filepath.FromSlash(relative))); err == nil {
 			return Accepted{StudentID: studentID, RequirementID: requirementID, VersionID: versionID, RelativePath: relative}, nil
 		}
 	}
-	target := filepath.Join(s.Versions.Root, relative)
+	target := filepath.Join(s.Versions.Root, filepath.FromSlash(relative))
 	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
 		return Accepted{}, fmt.Errorf("create accepted folder: %w", err)
 	}
@@ -295,8 +306,8 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 	if backup != "" {
 		_ = os.Remove(backup)
 	}
-	if previous != "" && previous != relative && filepath.IsLocal(previous) {
-		_ = os.Remove(filepath.Join(s.Versions.Root, previous))
+	if previous != "" && previous != relative {
+		_ = os.Remove(filepath.Join(s.Versions.Root, filepath.FromSlash(previous)))
 	}
 	return Accepted{StudentID: studentID, RequirementID: requirementID, VersionID: versionID, RelativePath: relative}, nil
 }

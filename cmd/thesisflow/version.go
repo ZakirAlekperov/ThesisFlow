@@ -7,7 +7,7 @@ import (
 
 // Version identifies this development code line and portable binary.
 // RU: Version обозначает текущую предварительную версию приложения.
-const Version = "0.5.0-dev"
+const Version = "0.6.0-dev"
 
 // writeVersion prints the build's human-readable version without reading
 // user files, opening SQLite, or starting the HTTP server.

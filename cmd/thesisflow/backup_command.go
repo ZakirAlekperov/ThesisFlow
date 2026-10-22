@@ -20,7 +20,7 @@ import (
 // допускается только в новый, ещё не существующий каталог.
 func runBackupCommand(ctx context.Context, workspace string, args []string, output io.Writer) error {
 	if len(args) < 2 || args[0] != "backup" {
-		return fmt.Errorf("usage: thesisflow backup export <archive.zip> | backup restore <archive.zip> <new-directory>")
+		return fmt.Errorf("usage: thesisflow backup export <archive.zip> | backup verify <archive.zip> | backup restore <archive.zip> <new-directory>")
 	}
 
 	switch args[1] {
@@ -42,6 +42,18 @@ func runBackupCommand(ctx context.Context, workspace string, args []string, outp
 		}
 		_, err = fmt.Fprintf(output, "Резервная копия создана: %s\n", args[2])
 		return err
+	case "verify":
+		if len(args) != 3 || args[2] == "" {
+			return fmt.Errorf("usage: thesisflow backup verify <archive.zip>")
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := backup.Verify(args[2]); err != nil {
+			return fmt.Errorf("verify backup: %w", err)
+		}
+		_, err := fmt.Fprintln(output, "Резервная копия прошла проверку файлов и SQLite.")
+		return err
 	case "restore":
 		if len(args) != 4 || args[2] == "" || args[3] == "" {
 			return fmt.Errorf("usage: thesisflow backup restore <archive.zip> <new-directory>")
@@ -55,6 +67,6 @@ func runBackupCommand(ctx context.Context, workspace string, args []string, outp
 		_, err := fmt.Fprintf(output, "Копия восстановлена в отдельный каталог: %s\n", args[3])
 		return err
 	default:
-		return fmt.Errorf("unknown backup operation %q (use export or restore)", args[1])
+		return fmt.Errorf("unknown backup operation %q (use export, verify or restore)", args[1])
 	}
 }

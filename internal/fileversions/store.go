@@ -14,12 +14,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/materials"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storagepath"
 )
 
 // MaxFileSize caps individual submitted files at 20 MiB in MVP.
@@ -163,9 +165,9 @@ func (s *Store) Save(ctx context.Context, studentID, requirementID int64, origin
 	if _, err := rand.Read(token); err != nil {
 		return Version{}, fmt.Errorf("generate version name: %w", err)
 	}
-	relative := filepath.Join(".internal", "versions", strconv.FormatInt(studentID, 10),
+	relative := path.Join(".internal", "versions", strconv.FormatInt(studentID, 10),
 		strconv.FormatInt(requirementID, 10), hex.EncodeToString(token)+extension)
-	target := filepath.Join(s.Root, relative)
+	target := filepath.Join(s.Root, filepath.FromSlash(relative))
 	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
 		return Version{}, fmt.Errorf("create document versions directory: %w", err)
 	}
@@ -277,7 +279,8 @@ func (s *Store) Read(ctx context.Context, versionID int64) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("find file version: %w", err)
 	}
-	if !filepath.IsLocal(relative) || strings.ContainsAny(relative, "\\\\:") {
+	normalized, err := storagepath.Normalize(relative)
+	if err != nil {
 		return nil, ErrInvalidFile
 	}
 	// Ensure the recorded path still contains only actual directories and one
@@ -291,7 +294,7 @@ func (s *Store) Read(ctx context.Context, versionID int64) ([]byte, error) {
 		return nil, ErrInvalidFile
 	}
 	target := s.Root
-	parts := strings.Split(filepath.Clean(relative), string(filepath.Separator))
+	parts := strings.Split(normalized, "/")
 	for i, part := range parts {
 		target = filepath.Join(target, part)
 		info, err := os.Lstat(target)

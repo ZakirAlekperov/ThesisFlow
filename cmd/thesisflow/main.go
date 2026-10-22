@@ -155,6 +155,7 @@ func start(ctx context.Context, output io.Writer, port, databasePath string, ope
 		Workbook:     importxlsx.Service{DB: db},
 		Management:   management.NewRepository(db),
 		Backup:       workspaceBackup{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
+		Doctor:       workspaceDoctor{db: db, storageDir: filepath.Join(filepath.Dir(databasePath), "storage")},
 		Restore:      workspaceRestore{root: filepath.Join(filepath.Dir(databasePath), "restores")},
 		Matrix:       statusmatrix.New(students.NewRepository(db), requirements.NewRepository(db), materials.NewRepository(db)),
 		ReviewQueue:  reviewqueue.New(db),
@@ -208,7 +209,12 @@ func main() {
 	if len(os.Args) > 1 {
 		configDir, err := os.UserConfigDir()
 		if err == nil {
-			err = runBackupCommand(ctx, filepath.Join(configDir, "ThesisFlow"), os.Args[1:], os.Stdout)
+			root := filepath.Join(configDir, "ThesisFlow")
+			if len(os.Args) == 2 && os.Args[1] == "doctor" {
+				err = runDoctorCommand(ctx, root, os.Stdout)
+			} else {
+				err = runBackupCommand(ctx, root, os.Args[1:], os.Stdout)
+			}
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
