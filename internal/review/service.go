@@ -199,7 +199,7 @@ func (s *Service) Accept(ctx context.Context, studentID, requirementID, versionI
 		return Accepted{}, err
 	}
 	if latestVersion != versionID {
-		return Accepted{}, ErrInvalidVersion
+		return Accepted{}, ErrStaleReview
 	}
 	if fingerprint(data) != info.sha {
 		return Accepted{}, errors.New("document version checksum mismatch")
