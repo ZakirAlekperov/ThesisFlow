@@ -23,6 +23,7 @@ type BackupExporter interface {
 
 type settingsData struct {
 	CSRFToken string
+	SelectionEnabled bool
 }
 
 // settingsTemplate renders an offline settings form using Go html/template.
@@ -35,7 +36,7 @@ var settingsTemplate = template.Must(template.New("settings").Parse(`<!doctype h
 <title>Настройки — ThesisFlow</title><link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
 <style>body{font:16px system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px}.panel{padding:24px;border:1px solid #dce3ed;border-radius:14px}button{border:0;border-radius:8px;background:#214eaf;color:white;padding:12px 20px;font:inherit;cursor:pointer}p{line-height:1.6}.warning{font-weight:600}</style>
 </head><body><nav><a href="/dashboard">← Панель преподавателя</a></nav>
-<h1>Настройки</h1><p><a href="/settings/health">Проверить состояние хранилища →</a></p><p><a href="/settings/workspaces">Выбрать восстановленное рабочее пространство →</a></p><section class="panel"><h2>Резервное копирование</h2>
+<h1>Настройки</h1><p><a href="/settings/health">Проверить состояние хранилища →</a></p>{{if .SelectionEnabled}}<p><a href="/settings/workspaces">Выбрать восстановленное рабочее пространство →</a></p>{{end}}<section class="panel"><h2>Резервное копирование</h2>
 <p>Сохраните SQLite и документы ВКР одним ZIP-архивом.</p>
 <p class="warning">Внимание: архив не зашифрован и содержит персональные данные. Храните его в защищённом месте.</p>
 <form method="post" action="/settings/backup">
@@ -53,9 +54,10 @@ var settingsTemplate = template.Must(template.New("settings").Parse(`<!doctype h
 
 // renderSettings serves a no-cache CSRF-protected settings page.
 // RU: renderSettings показывает настройки с защитой от кеширования токена.
-func renderSettings(w http.ResponseWriter, r *http.Request, token string) {
+func renderSettings(w http.ResponseWriter, r *http.Request, token string, allowSelection ...bool) {
+	selectionEnabled := len(allowSelection)>0 && allowSelection[0]
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := settingsTemplate.Execute(w, settingsData{CSRFToken: token}); err != nil {
+	if err := settingsTemplate.Execute(w, settingsData{CSRFToken: token, SelectionEnabled: selectionEnabled}); err != nil {
 		// Template is static and pre-validated at startup.
 		// RU: Шаблон статичен и проверяется при запуске.
 		return
