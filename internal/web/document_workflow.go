@@ -62,6 +62,7 @@ type documentPage struct {
 	Missing       int
 	Overdue       int
 	Progress      int
+	Notice        string
 }
 
 // The separate template keeps the card layout readable and testable.
@@ -158,6 +159,16 @@ func renderDocuments(w http.ResponseWriter, r *http.Request, groups GroupStore, 
 		return
 	}
 	data := documentPage{FullName: title, GroupName: group.Name, EducationalID: educationalID, GroupID: groupID, StudentID: studentID, CSRFToken: token}
+	// Display a fresh, allowlisted result after the PRG redirect.
+	// RU: После POST показываем результат, а не старое состояние страницы.
+	switch r.URL.Query().Get("review") {
+	case "accepted":
+		data.Notice = "Документ принят. Статус ведомости обновлён."
+	case "rejected":
+		data.Notice = "Документ отправлен на доработку."
+	case "uploaded":
+		data.Notice = "Документ загружен и ожидает проверки."
+	}
 	if docs.Thesis != nil {
 		record, err := docs.Thesis.Get(r.Context(), studentID)
 		if err != nil {
@@ -274,6 +285,11 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 			http.Error(w, "Ошибка формы или превышен размер.", http.StatusRequestEntityTooLarge)
 			return
 		}
+		// Multipart parser may write temporary files to disk.
+		// RU: Удаляем временные файлы при любом исходе загрузки.
+		if r.MultipartForm != nil {
+			defer r.MultipartForm.RemoveAll()
+		}
 	} else {
 		kind, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil || kind != "application/x-www-form-urlencoded" {
@@ -330,5 +346,14 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 		documentError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, page, http.StatusSeeOther)
+	notice := ""
+	switch action {
+	case "upload":
+		notice = "?review=uploaded"
+	case "accept":
+		notice = "?review=accepted"
+	case "reject":
+		notice = "?review=rejected"
+	}
+	http.Redirect(w, r, page+notice, http.StatusSeeOther)
 }
