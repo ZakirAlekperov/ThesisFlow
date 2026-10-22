@@ -19,7 +19,7 @@ func TestVersionReportsDevelopmentBuild(t *testing.T) {
 	if err := writeVersion(&output); err != nil {
 		t.Fatalf("write version: %v", err)
 	}
-	if got := strings.TrimSpace(output.String()); got != "ThesisFlow 0.4.0-dev" {
-		t.Errorf("version = %q, want ThesisFlow 0.4.0-dev", got)
+	if got := strings.TrimSpace(output.String()); got != "ThesisFlow 0.5.0-dev" {
+		t.Errorf("version = %q, want ThesisFlow 0.5.0-dev", got)
 	}
 }
