@@ -1,26 +1,26 @@
 package web
 
 import (
- "bytes"
- "context"
- "html/template"
- "net/http"
+	"bytes"
+	"context"
+	"html/template"
+	"net/http"
 
- "github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
 )
 
 // WorkspaceDoctor provides read-only SQL and file integrity diagnostics.
 // RU: Диагностика не удаляет файлы и не меняет статусы.
 type WorkspaceDoctor interface {
- Check(context.Context)(workspace.Report,error)
+	Check(context.Context) (workspace.Report, error)
 }
 
-type healthPage struct{
- Healthy bool
- Report workspace.Report
+type healthPage struct {
+	Healthy bool
+	Report  workspace.Report
 }
 
-var healthTemplate=template.Must(template.New("health").Parse(`<!doctype html>
+var healthTemplate = template.Must(template.New("health").Parse(`<!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Состояние хранилища — ThesisFlow</title>
 <link rel="stylesheet" href="/static/theme.css"><script src="/static/theme.js" defer></script>
@@ -49,17 +49,18 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1p
 
 // renderWorkspaceHealth reports actual integrity results and no student names.
 // RU: Показываем реальное состояние файлов, скрывая ФИО и пути.
-func renderWorkspaceHealth(w http.ResponseWriter,r *http.Request,doctor WorkspaceDoctor){
- report,err:=doctor.Check(r.Context())
- if err!=nil {
-  http.Error(w,"Проверка хранилища не завершена: проверьте журнал приложения.",http.StatusInternalServerError)
-  return
- }
- var output bytes.Buffer
- if err:=healthTemplate.Execute(&output,healthPage{Healthy:report.Healthy(),Report:report});err!=nil{
-  http.Error(w,"Не удалось показать результаты.",http.StatusInternalServerError);return
- }
- w.Header().Set("Content-Type","text/html; charset=utf-8")
- w.Header().Set("Cache-Control","no-store")
- _,_=w.Write(output.Bytes())
+func renderWorkspaceHealth(w http.ResponseWriter, r *http.Request, doctor WorkspaceDoctor) {
+	report, err := doctor.Check(r.Context())
+	if err != nil {
+		http.Error(w, "Проверка хранилища не завершена: проверьте журнал приложения.", http.StatusInternalServerError)
+		return
+	}
+	var output bytes.Buffer
+	if err := healthTemplate.Execute(&output, healthPage{Healthy: report.Healthy(), Report: report}); err != nil {
+		http.Error(w, "Не удалось показать результаты.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(output.Bytes())
 }

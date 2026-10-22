@@ -20,9 +20,9 @@ import (
 	"path/filepath"
 	"strings"
 
- "github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
- "github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
- "github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/migrate"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/storage/sqlite"
+	"github.com/ZakirAlekperov/ThesisFlow/internal/workspace"
 )
 
 const (

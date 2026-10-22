@@ -209,8 +209,8 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		})
 	}
 	if deps.Doctor != nil {
-		mux.HandleFunc("GET /settings/health",func(w http.ResponseWriter,r *http.Request){
-			renderWorkspaceHealth(w,r,deps.Doctor)
+		mux.HandleFunc("GET /settings/health", func(w http.ResponseWriter, r *http.Request) {
+			renderWorkspaceHealth(w, r, deps.Doctor)
 		})
 	}
 	if deps.Backup != nil || deps.Restore != nil {
