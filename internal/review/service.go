@@ -66,7 +66,7 @@ func (s *Service) Init(ctx context.Context) error {
 	if _, err := s.DB.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("initialize accepted files index: %w", err)
 	}
-	return nil
+	return s.initFeedback(ctx)
 }
 
 // safeName removes characters forbidden by major desktop filesystems while
