@@ -36,8 +36,8 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1p
 <p class="health-result">{{if .Healthy}}Проверка пройдена: обнаруженных нарушений нет{{else}}Обнаружены нарушения: требуется внимание{{end}}</p>
 <p>Версия схемы SQLite: {{.Report.SchemaVersion}}</p>
 <ul><li>Версии документов: {{.Report.VersionsIntact}} из {{.Report.VersionsChecked}} целы</li>
-<li>Принятые копии: {{.Report.AcceptedIntact}} из {{.Report.AcceptedChecked}} целы</li></ul>
-</section>
+<li>Принятые копии: {{.Report.AcceptedIntact}} из {{.Report.AcceptedChecked}} целы</li><li>Незарегистрированные элементы хранилища: {{.Report.ExtraFiles}}</li></ul>
+{{if gt .Report.ExtraFiles 0}}<p>Найдены неучтённые файлы. Они не удаляются автоматически; проверьте их вручную перед переносом или очисткой.</p>{{end}}</section>
 {{if .Report.Issues}}
 <section class="panel"><h2>Выявленные проблемы</h2>
 <div style="overflow-x:auto"><table><thead><tr><th scope="col">Категория</th><th scope="col">Версия №</th><th scope="col">Требование №</th><th scope="col">Описание</th></tr></thead>

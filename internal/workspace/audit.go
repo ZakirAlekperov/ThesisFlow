@@ -188,6 +188,9 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 		return report, nil
 	}
 	if !versionsPresent {
+		if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+			return Report{}, err
+		}
 		return report, nil
 	} // legacy SQLite ZIP without document records
 
@@ -202,6 +205,9 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 			"immutable file version failed integrity check")
 	}
 	if !acceptedPresent {
+		if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+			return Report{}, err
+		}
 		return report, nil
 	}
 	// The joined version must belong to this student and requirement, even
@@ -266,6 +272,9 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 	}
 	if err := links.Close(); err != nil {
 		return Report{}, err
+	}
+	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+		return Report{}, fmt.Errorf("inventory unexpected files: %w", err)
 	}
 	return report, nil
 }
