@@ -36,15 +36,15 @@ type Issue struct {
 // A nonempty Issues slice must never be silently treated as healthy.
 // RU: Отчёт разделяет серьёзные повреждения и посторонние файлы.
 type Report struct {
-	SchemaVersion   int
-	VersionsChecked int
-	VersionsIntact  int
-	AcceptedChecked int
-	AcceptedIntact  int
-	ExtraFiles      int
+	SchemaVersion    int
+	VersionsChecked  int
+	VersionsIntact   int
+	AcceptedChecked  int
+	AcceptedIntact   int
+	ExtraFiles       int
 	TemplatesChecked int
 	TemplatesIntact  int
-	Issues          []Issue
+	Issues           []Issue
 }
 
 // Healthy reports whether all SQLite and document checks passed.
@@ -206,9 +206,9 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 	}
 	if !versionsPresent {
 		if err := inspectTemplateVersions(ctx, db, storageRoot, &report); err != nil {
-		return Report{}, fmt.Errorf("verify document template files: %w", err)
-	}
-	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+			return Report{}, fmt.Errorf("verify document template files: %w", err)
+		}
+		if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
 			return Report{}, err
 		}
 		return report, nil
@@ -226,9 +226,9 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 	}
 	if !acceptedPresent {
 		if err := inspectTemplateVersions(ctx, db, storageRoot, &report); err != nil {
-		return Report{}, fmt.Errorf("verify document template files: %w", err)
-	}
-	if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
+			return Report{}, fmt.Errorf("verify document template files: %w", err)
+		}
+		if err := inspectOrphans(ctx, db, storageRoot, &report); err != nil {
 			return Report{}, err
 		}
 		return report, nil
