@@ -3,7 +3,7 @@
 Локальный помощник преподавателя для управления материалами выпускных
 квалификационных работ. / A local graduation-thesis document manager for educators.
 
-**Status / Статус: 0.3.0-dev — версия в разработке, не стабильный релиз.**
+**Status / Статус: 0.4.0-dev — версия в разработке, не стабильный релиз.**
 
 ## Возможности (RU)
 
@@ -19,7 +19,9 @@ ThesisFlow запускается как одно локальное прило�
   изменение названия блокируется ради целостности файлов.
 - Для одной ВКР: тема с реквизитами приказа, все требуемые документы,
   загрузка одиночных версий или до десяти файлов за одну отправку,
-  просмотр истории, принятие и возврат на доработку.
+  просмотр истории, принятие и возврат на доработку с обязательной причиной.
+- Комментарии преподавателя к каждой конкретной версии документа и неизменяемая
+  история рецензирования с указанием даты и номера версии.
 - Раздельное хранение неизменяемых версий и человекочитаемых папок с
   принятыми файлами: группа / студент / нормализованное имя документа.
 - Общая ведомость по группе, фильтры статусов и просрочек, печатный отчёт,
@@ -69,6 +71,7 @@ go test -race ./...
 ### Документация
 
 - [Возможности и приёмка 0.2.0](docs/release-0.2.0.md)
+- [План версии 0.4.0 и приёмка рецензирования](docs/release-0.4.0.md)
 - [Оформление варианта C](docs/ui-concept-c.md)
 - [Редактирование требований](docs/requirement-edit-0.3.md)
 - [Контроль обновления статусов](docs/status-freshness-0.3.md)
@@ -92,7 +95,9 @@ projection; thesis topic/order metadata; approval/revision history; grouped
 status matrix, overdue filters, progress dashboard, printable reports,
 search, bundled test templates, backups and isolated verified restores.
 
-The 0.3.0 development line adds concept C navigation and theme consistency,
+The 0.4.0 development line adds version-specific review comments and
+mandatory transactional reasons for returning documents for revision.
+The 0.3.0 line added concept C navigation and theme consistency,
 requirement title/date editing, and direct status-freshness regression tests.
 A title cannot be changed after a file for that requirement has been
 approved until safe accepted-file relocation is implemented.
