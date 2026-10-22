@@ -266,18 +266,49 @@ func (s *Store) Read(ctx context.Context, versionID int64) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	var relative string
-	err := s.DB.QueryRowContext(ctx, "SELECT relative_path FROM file_versions WHERE id=?", versionID).Scan(&relative)
+	var relative, expectedHash string
+	var expectedSize int64
+	err := s.DB.QueryRowContext(ctx,
+		"SELECT relative_path,file_size,sha256 FROM file_versions WHERE id=?", versionID).
+		Scan(&relative, &expectedSize, &expectedHash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrVersionNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find file version: %w", err)
 	}
-	if !filepath.IsLocal(relative) {
+	if !filepath.IsLocal(relative) || strings.ContainsAny(relative, "\\\\:") {
 		return nil, ErrInvalidFile
 	}
-	handle, err := os.Open(filepath.Join(s.Root, relative))
+	// Ensure the recorded path still contains only actual directories and one
+	// regular file. Plain os.Open follows symlinks and must not be used alone.
+	// RU: Запрещаем символические ссылки на всех уровнях относительного пути.
+	rootInfo, err := os.Lstat(s.Root)
+	if err != nil {
+		return nil, fmt.Errorf("inspect version store: %w", err)
+	}
+	if !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+		return nil, ErrInvalidFile
+	}
+	target := s.Root
+	parts := strings.Split(filepath.Clean(relative), string(filepath.Separator))
+	for i, part := range parts {
+		target = filepath.Join(target, part)
+		info, err := os.Lstat(target)
+		if err != nil {
+			return nil, fmt.Errorf("inspect stored version path: %w", err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil, ErrInvalidFile
+		}
+		if i < len(parts)-1 && !info.IsDir() {
+			return nil, ErrInvalidFile
+		}
+		if i == len(parts)-1 && !info.Mode().IsRegular() {
+			return nil, ErrInvalidFile
+		}
+	}
+	handle, err := os.Open(target)
 	if err != nil {
 		return nil, fmt.Errorf("open stored version: %w", err)
 	}
@@ -288,6 +319,13 @@ func (s *Store) Read(ctx context.Context, versionID int64) ([]byte, error) {
 	}
 	if len(data) > MaxFileSize {
 		return nil, ErrTooLarge
+	}
+	if int64(len(data)) != expectedSize {
+		return nil, ErrInvalidFile
+	}
+	digest := sha256.Sum256(data)
+	if hex.EncodeToString(digest[:]) != expectedHash {
+		return nil, ErrInvalidFile
 	}
 	return data, nil
 }

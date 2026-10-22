@@ -246,6 +246,11 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		mux.HandleFunc("POST /groups/{id}/requirements", func(w http.ResponseWriter, r *http.Request) {
 			createGroupRequirement(w, r, store, deps.Requirements, token)
 		})
+		if editor, ok := deps.Requirements.(RequirementEditor); ok {
+			mux.HandleFunc("POST /groups/{id}/requirements/{requirement}/update", func(w http.ResponseWriter, r *http.Request) {
+				updateGroupRequirement(w, r, store, editor, token)
+			})
+		}
 	}
 	if deps.Report != nil {
 		mux.HandleFunc("GET /groups/{id}/report", func(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +265,9 @@ func NewHandlerWithServices(store GroupStore, studentStore StudentStore, deps De
 		}
 		mux.HandleFunc("GET /groups/{id}/students/{student}", func(w http.ResponseWriter, r *http.Request) {
 			renderDocuments(w, r, store, studentStore, deps.Documents, token)
+		})
+		mux.HandleFunc("POST /groups/{id}/students/{student}/documents/batch", func(w http.ResponseWriter, r *http.Request) {
+			batchUploadDocuments(w, r, store, studentStore, deps.Documents, token)
 		})
 		for _, operation := range []string{"upload", "accept", "reject", "download"} {
 			action := operation
