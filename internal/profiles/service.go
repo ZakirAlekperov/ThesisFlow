@@ -380,6 +380,23 @@ func (s *Service) Apply(ctx context.Context, groupID, profileID int64, token str
    VALUES(?,?,?,?)`, groupID, profileID, action.Key, id); err != nil {
 			return Plan{}, err
 		}
+		// New requirements receive the profile's configured position.
+		// RU: Порядок документа не задаётся его алфавитным названием.
+		for _,item:=range p.Items{
+			if item.Key==action.Key{
+				if _,err:=conn.ExecContext(ctx,"UPDATE requirements SET sort_order=? WHERE id=?",item.Position,id);err!=nil{return Plan{},err}
+				break
+			}
+		}
+	}
+	// A new revision may reorder existing bound items without renaming or
+	// modifying their permanent ID, status, files or acceptance history.
+	// RU: Смена порядка не затрагивает принятые документы.
+	for _,item:=range p.Items{
+		if _,err:=conn.ExecContext(ctx,`UPDATE requirements SET sort_order=?
+		  WHERE id IN(SELECT requirement_id FROM group_profile_bindings
+		   WHERE group_id=? AND profile_id=? AND item_key=?)`,
+		  item.Position,groupID,profileID,item.Key);err!=nil{return Plan{},err}
 	}
 	if _, err := conn.ExecContext(ctx, `INSERT INTO group_profile_state(group_id,profile_id,revision_id)
  VALUES(?,?,?) ON CONFLICT(group_id) DO UPDATE SET revision_id=excluded.revision_id,applied_at=datetime('now')`, groupID, profileID, p.RevisionID); err != nil {
