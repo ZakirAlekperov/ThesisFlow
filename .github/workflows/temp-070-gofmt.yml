@@ -17,7 +17,7 @@ jobs:
           cache: false
       - name: gofmt and push
         run: |
-          gofmt -w internal/profiles internal/schedule internal/userassets internal/requirements/repository.go internal/storage/migrate/migrate.go internal/analytics/report.go internal/web/profiles_page.go internal/web/calendar_page.go internal/web/assets_page.go internal/web/profile_transfer_page.go internal/web/handler.go internal/web/student_page.go internal/web/templates.go cmd/thesisflow/main.go cmd/thesisflow/version.go cmd/thesisflow/version_test.go
+          gofmt -w internal/workspace internal/profiles internal/schedule internal/userassets internal/requirements/repository.go internal/storage/migrate/migrate.go internal/analytics/report.go internal/web/profiles_page.go internal/web/calendar_page.go internal/web/assets_page.go internal/web/profile_transfer_page.go internal/web/handler.go internal/web/student_page.go internal/web/templates.go cmd/thesisflow/main.go cmd/thesisflow/version.go cmd/thesisflow/version_test.go
           git config user.name "ThesisFlow CI"
           git config user.email "thesisflow-ci@users.noreply.github.com"
           if ! git diff --quiet; then
