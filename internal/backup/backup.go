@@ -217,7 +217,21 @@ func safeEntry(name string) bool {
 	if path.Clean(name) != name || strings.HasPrefix(name, "../") {
 		return false
 	}
-	return name == "manifest.json" || name == "thesisflow.sqlite" || strings.HasPrefix(name, "storage/")
+	if !(name == "manifest.json" || name == "thesisflow.sqlite" || strings.HasPrefix(name, "storage/")) {
+		return false
+	}
+	for _, component := range strings.Split(name, "/") {
+		if component == "" || strings.HasSuffix(component, ".") || strings.HasSuffix(component, " ") {
+			return false
+		}
+		reserved := strings.ToUpper(strings.SplitN(component, ".", 2)[0])
+		if reserved == "CON" || reserved == "PRN" || reserved == "AUX" || reserved == "NUL" ||
+			(len(reserved) == 4 && (strings.HasPrefix(reserved, "COM") || strings.HasPrefix(reserved, "LPT")) &&
+				reserved[3] >= '1' && reserved[3] <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // Restore verifies file hashes and safely restores a backup into a completely
@@ -257,6 +271,7 @@ func Restore(archivePath, destination string) error {
 	defer os.RemoveAll(staging)
 
 	found := make(map[string]string)
+	casefold := make(map[string]struct{})
 	var expected manifest
 	manifestFound := false
 	var total int64
@@ -265,6 +280,15 @@ func Restore(archivePath, destination string) error {
 		if !safeEntry(name) || entry.FileInfo().Mode()&os.ModeSymlink != 0 || !entry.FileInfo().Mode().IsRegular() {
 			return fmt.Errorf("%w: invalid entry %q", ErrUnsafeArchive, name)
 		}
+		// Windows and many macOS volumes are case-insensitive. Reject
+		// archives that would overwrite different files on those systems.
+		// RU: Архив не должен содержать коллизии имён без учёта регистра.
+		key := strings.ToLower(name)
+		if _, duplicate := casefold[key]; duplicate {
+			return fmt.Errorf("%w: case-insensitive path collision", ErrUnsafeArchive)
+		}
+		casefold[key] = struct{}{}
+
 		if entry.UncompressedSize64 > uint64(maxEntryBytes) {
 			return ErrTooLarge
 		}
