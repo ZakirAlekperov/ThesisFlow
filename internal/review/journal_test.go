@@ -250,7 +250,7 @@ func TestCannotAcceptSupersededVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Accept(ctx, studentID, requirementID, first.ID); !errors.Is(err, ErrInvalidVersion) {
+	if _, err := svc.Accept(ctx, studentID, requirementID, first.ID); !errors.Is(err, ErrStaleReview) {
 		t.Fatalf("obsolete revision was allowed for acceptance: %v", err)
 	}
 	pending, err := svc.PendingCount(ctx)
