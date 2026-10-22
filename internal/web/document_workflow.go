@@ -278,7 +278,7 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 		return
 	}
 	page := fmt.Sprintf("/groups/%d/students/%d", groupID, studentID)
-	if action == "download" {
+	if action == "download" || action == "preview" {
 		versionID, err := strconv.ParseInt(r.PathValue("version"), 10, 64)
 		if err != nil || versionID <= 0 {
 			http.NotFound(w, r)
@@ -303,6 +303,10 @@ func handleDocumentAction(w http.ResponseWriter, r *http.Request, groups GroupSt
 		data, err := docs.Versions.Read(r.Context(), versionID)
 		if err != nil {
 			documentError(w, r, err)
+			return
+		}
+		if action == "preview" {
+			serveSafePreview(w, selected.OriginalName, data)
 			return
 		}
 		w.Header().Set("Content-Type", "application/octet-stream")

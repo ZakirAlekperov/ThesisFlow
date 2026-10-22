@@ -5,7 +5,7 @@ import "html/template"
 // documentTemplate is the server-rendered workspace for a single thesis.
 // All student names, file names and dates are escaped by html/template.
 // RU: Карточка одной ВКР; все пользовательские строки экранируются сервером.
-var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!doctype html>
+var documentTemplate = template.Must(template.New("thesis-workspace").Funcs(template.FuncMap{"canPreview": canPreviewName}).Parse(`<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
@@ -69,6 +69,7 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
   </nav>
   <h1>ВКР: {{.FullName}}</h1>
   <p class="intro muted">Группа: {{.GroupName}} · Учебный ID: {{.EducationalID}}</p>
+  <p><a href="/groups/{{.GroupID}}/students/{{.StudentID}}/reviews/print" target="_blank" rel="noopener">Печать журнала замечаний</a></p>
   {{if .Notice}}<p class="panel" role="status">{{.Notice}}</p>{{end}}
 
   <section class="panel" aria-labelledby="progress-title">
@@ -142,8 +143,9 @@ var documentTemplate = template.Must(template.New("thesis-workspace").Parse(`<!d
     {{$doc := .}}
     <ol class="versions">
       {{range .Versions}}
-      <li>
+      <li id="version-{{.ID}}">
         <a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/download">{{.OriginalName}}</a>
+        {{if canPreview .OriginalName}}<a href="/groups/{{$.GroupID}}/students/{{$.StudentID}}/documents/{{.RequirementID}}/versions/{{.ID}}/preview" target="_blank" rel="noopener">Предпросмотр PDF/TXT</a>{{end}}
         <span class="muted"> · {{.UploadedAt}} · {{.Size}} байт · Версия #{{.ID}}</span>
         {{if and (eq .ID $doc.LatestVersionID) (eq $doc.Status "На проверке")}}
         <div class="version-actions">
