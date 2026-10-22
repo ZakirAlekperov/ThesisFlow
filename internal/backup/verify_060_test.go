@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ZakirAlekperov/ThesisFlow/internal/fileversions"
@@ -65,6 +66,14 @@ func reviewBackupFixture(t *testing.T) (string, string, *review.Service, int64, 
 func TestRestoreAndVerifyRejectSemanticallyCorruptZIP(t *testing.T) {
 	root, storage, svc, studentID, requirementID, _ := reviewBackupFixture(t)
 	ctx := context.Background()
+	// An older Windows database may contain '\\' in relative_path.
+	// The ZIP's physical paths are canonical '/' names; restored SQL links
+	// must still be valid on every supported OS.
+	var sourceRelative, acceptedRelative string
+	if err:=svc.DB.QueryRowContext(ctx,"SELECT relative_path FROM file_versions LIMIT 1").Scan(&sourceRelative);err!=nil {t.Fatal(err)}
+	if err:=svc.DB.QueryRowContext(ctx,"SELECT relative_path FROM accepted_files LIMIT 1").Scan(&acceptedRelative);err!=nil {t.Fatal(err)}
+	if _,err:=svc.DB.ExecContext(ctx,"UPDATE file_versions SET relative_path=?",strings.ReplaceAll(sourceRelative,"/",string(rune(92))));err!=nil{t.Fatal(err)}
+	if _,err:=svc.DB.ExecContext(ctx,"UPDATE accepted_files SET relative_path=?",strings.ReplaceAll(acceptedRelative,"/",string(rune(92))));err!=nil{t.Fatal(err)}
 	good := filepath.Join(root, "good.zip")
 	if err := Export(ctx, svc.DB, storage, good); err != nil {
 		t.Fatal(err)
