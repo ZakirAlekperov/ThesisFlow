@@ -3,7 +3,11 @@ package backup
 import (
 	"archive/zip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,13 +104,12 @@ func TestRestoreAndVerifyRejectSemanticallyCorruptZIP(t *testing.T) {
 		studentID, requirementID).Scan(&relative); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(storage, relative), []byte("wrong bytes"), 0600); err != nil {
-		t.Fatal(err)
-	}
+	// Export now rejects corrupted source workspaces. Instead mutate an
+	// otherwise good ZIP and update its manifest hash; semantic validation
+	// must still reject the accepted file that disagrees with SQLite.
+	// RU: Байт испорчен в архиве при пересчитанном ZIP-манифесте.
 	broken := filepath.Join(root, "damaged.zip")
-	if err := Export(ctx, svc.DB, storage, broken); err != nil {
-		t.Fatal(err)
-	}
+	repackWithAlteredProjection(t, good, broken, "storage/"+strings.ReplaceAll(relative, "\\", "/"), []byte("wrong bytes"))
 	if err := Verify(broken); !errors.Is(err, ErrUnsafeArchive) {
 		t.Errorf("verified a semantically broken backup: %v", err)
 	}
@@ -167,5 +170,67 @@ func TestRestoreRejectsCaseCollisionsAndWindowsReservedNames(t *testing.T) {
 		if !errors.Is(err, ErrUnsafeArchive) {
 			t.Errorf("accepted ambiguous or reserved archive %v: %v", names, err)
 		}
+	}
+}
+
+// repackWithAlteredProjection creates a syntactically correct manifest v1 ZIP
+// that contains a corrupt accepted projection. Only tests fabricate this.
+// RU: Перепаковываем тестовый ZIP, сверяя новые хеши манифеста.
+func repackWithAlteredProjection(t *testing.T, source, destination, filename string, content []byte) {
+	t.Helper()
+	original, err := zip.OpenReader(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer original.Close()
+	data := make(map[string][]byte)
+	var names []string
+	for _, entry := range original.File {
+		handle, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		bytes, err := io.ReadAll(handle)
+		closeErr := handle.Close()
+		if err != nil || closeErr != nil {
+			t.Fatalf("read ZIP entry %s: %v %v", entry.Name, err, closeErr)
+		}
+		data[entry.Name] = bytes
+		names = append(names, entry.Name)
+	}
+	if _, ok := data[filename]; !ok {
+		t.Fatalf("projection not in ZIP: %q", filename)
+	}
+	data[filename] = content
+	var metadata manifest
+	if err := json.Unmarshal(data["manifest.json"], &metadata); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(content)
+	metadata.Files[filename] = hex.EncodeToString(sum[:])
+	encoded, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data["manifest.json"] = encoded
+	target, err := os.Create(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := zip.NewWriter(target)
+	for _, name := range names {
+		stream, err := writer.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := stream.Write(data[name]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := target.Close(); err != nil {
+		t.Fatal(err)
 	}
 }

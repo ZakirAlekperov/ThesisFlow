@@ -175,6 +175,21 @@ func Check(ctx context.Context, db *sql.DB, storageRoot string) (Report, error) 
 		return Report{}, err
 	}
 
+	// Durable intents must be resolved before a backup is trusted.
+	// RU: При незавершённой приёмке копирование запрещается.
+	journalPresent, err := tableExists(ctx, db, "approval_operations")
+	if err != nil {
+		return Report{}, err
+	}
+	if journalPresent {
+		var pending int
+		if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM approval_operations").Scan(&pending); err != nil {
+			return Report{}, fmt.Errorf("check pending approvals: %w", err)
+		}
+		if pending > 0 {
+			report.add("pending_approval", 0, 0, 0, "approval recovery required before backup")
+		}
+	}
 	versionsPresent, err := tableExists(ctx, db, "file_versions")
 	if err != nil {
 		return Report{}, err

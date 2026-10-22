@@ -191,6 +191,12 @@ func (s *Store) Save(ctx context.Context, studentID, requirementID int64, origin
 	if err := os.Rename(temporary, target); err != nil {
 		return Version{}, fmt.Errorf("finish document version: %w", err)
 	}
+	// Persist the directory rename before committing its SQLite row.
+	// RU: После публикации файла синхронизируем запись каталога.
+	if err := storagepath.SyncParent(target); err != nil {
+		_ = os.Remove(target)
+		return Version{}, fmt.Errorf("sync version directory: %w", err)
+	}
 	committed := false
 	defer func() {
 		if !committed {
