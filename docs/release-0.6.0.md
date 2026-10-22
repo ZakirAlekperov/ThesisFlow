@@ -91,14 +91,23 @@ thesisflow backup restore /path/to/ThesisFlow-backup.zip /path/to/NEW-workspace
   перезапущенный сервис. Дополнительно проверяется смена расширения
   документа, редактирование принятой копии вручную, конфликт и
   невозможность повторного принятия до восстановления.
+- Синхронизация файла и родительского каталога после rename добавлена
+  для macOS/Linux; на Windows fsync каталога в стандартной библиотеке
+  не предоставляется, что явно оговорено в `storagepath.SyncParent`.
+- Помимо программных точек отказа автоматические тесты завершают
+  настоящий дочерний процесс через `os.Exit`, заново открывают SQLite
+  и восстанавливают тот же документ без потери старых байтов.
+- Устаревшую версию документа принять нельзя: проверяем MAX(id) до
+  публикации и повторно внутри SQL-транзакции. Пользовательские конфликты
+  отображаются с HTTP 409 и рекомендацией по безопасному восстановлению.
 - Проверка не обещает абсолютной crash-атомарности ОС и FS:
-  требуется синхронизация каталогов, испытания прерывания питания,
-  блокировка конкурирующих процессов и отдельная процедура активации.
+  необходимы испытания настоящего отключения питания,
+  межпроцессная блокировка и отдельная процедура активации.
 
 ## Что ещё не реализовано в 0.6.0
 
-- Аварийные испытания с реальным завершением процесса/отключением питания,
-  а не только программные точки отказа, и межпроцессная блокировка.
+- Испытания с реальным отключением питания/сбоем файловой системы
+  и межпроцессная блокировка второго экземпляра приложения.
 - Управляемая активация восстановленного workspace после закрытия
   текущей SQLite, защита от сбоев при переключении.
 - Полноценный перенос абсолютных/Windows-относительных ссылок в старых
@@ -120,8 +129,10 @@ thesisflow backup restore /path/to/ThesisFlow-backup.zip /path/to/NEW-workspace
 2. На отдельном тестовом workspace повредить принятую копию:
    диагностика отмечает нарушение и не перезаписывает файл.
 3. Создать ZIP до повреждения, выполнить CLI `backup verify`.
-4. Создать ZIP **после** повреждения: даже при верном ZIP-SHA256
-   восстановление должно отказаться создавать целевой каталог.
+4. Попробовать экспортировать ZIP **после** повреждения: он должен
+   завершиться отказом без создания архива. Искусственно созданный ZIP
+   с корректным манифестом, но неверной файловой проекцией также
+   должен отвергаться при Verify/Restore.
 5. Проверить, что архив с неподдерживаемой схемой также отвергается.
 6. На свежей Windows и macOS проверить резервное копирование и
    восстановление в отдельный каталог; исходные файлы не меняются.
@@ -130,11 +141,11 @@ thesisflow backup restore /path/to/ThesisFlow-backup.zip /path/to/NEW-workspace
 
 ## English summary
 
-The first 0.6.0 increment adds a read-only SQLite, immutable-upload and
-accepted-projection integrity audit; a safe diagnostic page and
-`thesisflow doctor`; and backup verification before publishing a
-restored directory. Corrupt references and case-colliding or
-Windows-reserved ZIP names are rejected. The application does not yet
-contain a durable cross-resource operation journal or automatic
-restored-workspace activation. These are required before calling the
-full 0.6.0 reliability milestone complete.
+0.6.0 includes a read-only SQLite and document integrity audit, local
+doctor and verified ZIP recovery, plus a durable SQLite approval-intent
+journal. File publication is hash-guarded and startup recovery follows
+the committed DB row; real subprocess-termination tests cover both sides
+of SQL commit. Linux/macOS parent-directory fsync is included, while
+Windows durability limitations remain documented. Multi-process locking,
+physical power-loss trials and safe workspace activation are still
+outstanding before full 0.6.0 release readiness.
