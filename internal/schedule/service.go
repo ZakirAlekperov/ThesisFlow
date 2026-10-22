@@ -11,7 +11,6 @@ import (
  "encoding/json"
  "errors"
  "fmt"
- "strings"
  "time"
 )
 var ErrInvalid=errors.New("invalid schedule data")
@@ -54,7 +53,7 @@ func(s *Service)Preview(ctx context.Context,groupID int64,proposed map[int64]str
   if val,exists:=proposed[row.RequirementID];exists{row.Next=val}
  }
  for id:=range proposed{if !seen[id]{return nil,"",ErrInvalid}}
- return current,tokenFor(groupID,current),""
+ return current,tokenFor(groupID,current),nil
 }
 // ApplyDeadlines compares the preview inside a write transaction and records
 // independent schedule events, not material submission events.
@@ -147,4 +146,3 @@ func(s *Service)Calendar(ctx context.Context,groupID int64)([]CalendarEntry,erro
  }
  return result,rows.Err()
 }
-var _=strings.TrimSpace
